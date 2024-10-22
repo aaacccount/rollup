@@ -320,7 +320,13 @@ export type HasModuleSideEffects = (id: string, external: boolean) => boolean;
 
 export type LoadResult = SourceDescription | string | NullValue;
 
-export type LoadHook = (this: PluginContext, id: string) => LoadResult;
+export type LoadHook = (
+	this: PluginContext,
+	id: string,
+	options: {
+		attributes: Record<string, any>;
+	}
+) => LoadResult;
 
 export interface TransformPluginContext extends PluginContext {
 	debug: LoggingFunctionWithPosition;
@@ -335,7 +341,10 @@ export type TransformResult = string | NullValue | Partial<SourceDescription>;
 export type TransformHook = (
 	this: TransformPluginContext,
 	code: string,
-	id: string
+	id: string,
+	options: {
+		attributes: Record<string, string>;
+	}
 ) => TransformResult;
 
 export type ModuleParsedHook = (this: PluginContext, info: ModuleInfo) => void;
@@ -425,6 +434,7 @@ export interface FunctionPluginHooks {
 			format: InternalModuleFormat;
 			moduleId: string;
 			targetModuleId: string | null;
+			targetModuleAttributes: Record<string, string>;
 		}
 	) => { left: string; right: string } | NullValue;
 	renderError: (this: PluginContext, error?: Error) => void;
