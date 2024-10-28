@@ -59,6 +59,7 @@ export type ModuleLoaderResolveId = (
 	customOptions: CustomPluginOptions | undefined,
 	isEntry: boolean | undefined,
 	attributes: Record<string, string>,
+	importerAttributes: Record<string, string> | undefined,
 	skip?: readonly { importer: string | undefined; plugin: Plugin; source: string }[] | null
 ) => Promise<ResolvedId | null>;
 
@@ -110,7 +111,7 @@ export class ModuleLoader {
 		const result = this.extendLoadModulesPromise(
 			Promise.all(
 				unresolvedModules.map(id =>
-					this.loadEntryModule(id, false, undefined, null, isAddForManualChunks)
+					this.loadEntryModule(id, false, undefined, null, isAddForManualChunks, undefined)
 				)
 			)
 		);
@@ -133,7 +134,7 @@ export class ModuleLoader {
 		const newEntryModules = await this.extendLoadModulesPromise(
 			Promise.all(
 				unresolvedEntryModules.map(({ id, importer }) =>
-					this.loadEntryModule(id, true, importer, null)
+					this.loadEntryModule(id, true, importer, null, undefined, undefined)
 				)
 			).then(entryModules => {
 				for (const [index, entryModule] of entryModules.entries()) {
@@ -215,6 +216,7 @@ export class ModuleLoader {
 		customOptions,
 		isEntry,
 		attributes,
+		importerAttributes,
 		skip = null
 	) =>
 		this.getResolvedIdWithDefaults(
@@ -230,7 +232,8 @@ export class ModuleLoader {
 							skip,
 							customOptions,
 							typeof isEntry === 'boolean' ? isEntry : !importer,
-							attributes
+							attributes,
+							importerAttributes
 						),
 				importer,
 				source
@@ -244,32 +247,44 @@ export class ModuleLoader {
 	): Promise<Module> {
 		const chunkNamePriority = this.nextChunkNamePriority++;
 		return this.extendLoadModulesPromise(
-			this.loadEntryModule(unresolvedModule.id, false, unresolvedModule.importer, null).then(
-				async entryModule => {
-					addChunkNamesToModule(entryModule, unresolvedModule, false, chunkNamePriority);
-					if (!entryModule.info.isEntry) {
-						const implicitlyLoadedAfterModules = await Promise.all(
-							implicitlyLoadedAfter.map(id =>
-								this.loadEntryModule(id, false, unresolvedModule.importer, entryModule.id)
+			this.loadEntryModule(
+				unresolvedModule.id,
+				false,
+				unresolvedModule.importer,
+				null,
+				undefined,
+				undefined
+			).then(async entryModule => {
+				addChunkNamesToModule(entryModule, unresolvedModule, false, chunkNamePriority);
+				if (!entryModule.info.isEntry) {
+					const implicitlyLoadedAfterModules = await Promise.all(
+						implicitlyLoadedAfter.map(id =>
+							this.loadEntryModule(
+								id,
+								false,
+								unresolvedModule.importer,
+								entryModule.id,
+								undefined,
+								undefined
 							)
-						);
-						// We need to check again if this is still an entry module as these
-						// changes need to be performed atomically to avoid race conditions
-						// if the same module is re-emitted as an entry module.
-						// The inverse changes happen in "handleExistingModule"
-						if (!entryModule.info.isEntry) {
-							this.implicitEntryModules.add(entryModule);
-							for (const module of implicitlyLoadedAfterModules) {
-								entryModule.implicitlyLoadedAfter.add(module);
-							}
-							for (const dependant of entryModule.implicitlyLoadedAfter) {
-								dependant.implicitlyLoadedBefore.add(entryModule);
-							}
+						)
+					);
+					// We need to check again if this is still an entry module as these
+					// changes need to be performed atomically to avoid race conditions
+					// if the same module is re-emitted as an entry module.
+					// The inverse changes happen in "handleExistingModule"
+					if (!entryModule.info.isEntry) {
+						this.implicitEntryModules.add(entryModule);
+						for (const module of implicitlyLoadedAfterModules) {
+							entryModule.implicitlyLoadedAfter.add(module);
+						}
+						for (const dependant of entryModule.implicitlyLoadedAfter) {
+							dependant.implicitlyLoadedBefore.add(entryModule);
 						}
 					}
-					return entryModule;
 				}
-			)
+				return entryModule;
+			})
 		);
 	}
 
@@ -600,7 +615,14 @@ export class ModuleLoader {
 					(module.resolvedIds[source] =
 						module.resolvedIds[source] ||
 						this.handleInvalidResolvedId(
-							await this.resolveId(source, module.id, EMPTY_OBJECT, false, attributes),
+							await this.resolveId(
+								source,
+								module.id,
+								EMPTY_OBJECT,
+								false,
+								attributes,
+								module.info.attributes
+							),
 							source,
 							module.id,
 							attributes
@@ -680,7 +702,8 @@ export class ModuleLoader {
 		isEntry: boolean,
 		importer: string | undefined,
 		implicitlyLoadedBefore: string | null,
-		isLoadForManualChunks = false
+		isLoadForManualChunks = false,
+		importerAttributes: Record<string, string> | undefined
 	): Promise<Module> {
 		const resolveIdResult = await resolveId(
 			unresolvedId,
@@ -691,7 +714,8 @@ export class ModuleLoader {
 			null,
 			EMPTY_OBJECT,
 			true,
-			EMPTY_OBJECT
+			EMPTY_OBJECT,
+			importerAttributes
 		);
 		if (resolveIdResult == null) {
 			return error(
@@ -732,7 +756,7 @@ export class ModuleLoader {
 		const resolution = await this.pluginDriver.hookFirst('resolveDynamicImport', [
 			specifier,
 			importer,
-			{ attributes }
+			{ attributes, importerAttributes: module.info.attributes }
 		]);
 		if (typeof specifier !== 'string') {
 			if (typeof resolution === 'string') {
@@ -763,7 +787,14 @@ export class ModuleLoader {
 				return existingResolution;
 			}
 			return (module.resolvedIds[specifier] = this.handleInvalidResolvedId(
-				await this.resolveId(specifier, module.id, EMPTY_OBJECT, false, attributes),
+				await this.resolveId(
+					specifier,
+					module.id,
+					EMPTY_OBJECT,
+					false,
+					attributes,
+					module.info.attributes
+				),
 				specifier,
 				module.id,
 				attributes

@@ -257,6 +257,7 @@ export interface PluginContext extends MinimalPluginContext {
 		source: string,
 		importer?: string,
 		options?: {
+			importerAttributes?: Record<string, string>;
 			attributes?: Record<string, string>;
 			custom?: CustomPluginOptions;
 			isEntry?: boolean;
@@ -294,7 +295,12 @@ export type ResolveIdHook = (
 	this: PluginContext,
 	source: string,
 	importer: string | undefined,
-	options: { attributes: Record<string, string>; custom?: CustomPluginOptions; isEntry: boolean }
+	options: {
+		attributes: Record<string, string>;
+		custom?: CustomPluginOptions;
+		importerAttributes: Record<string, string> | undefined;
+		isEntry: boolean;
+	}
 ) => ResolveIdResult;
 
 export type ShouldTransformCachedModuleHook = (
@@ -362,7 +368,7 @@ export type ResolveDynamicImportHook = (
 	this: PluginContext,
 	specifier: string | AstNode,
 	importer: string,
-	options: { attributes: Record<string, string> }
+	options: { attributes: Record<string, string>; importerAttributes: Record<string, string> }
 ) => ResolveIdResult;
 
 export type ResolveImportMetaHook = (
