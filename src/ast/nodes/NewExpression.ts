@@ -44,19 +44,20 @@ export default class NewExpression extends NodeBase<ast.NewExpression> {
 		return path.length > 0 || type !== INTERACTION_ACCESSED;
 	}
 
-	includePath(
-		path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
-		if (!this.deoptimized) this.applyDeoptimizations();
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		if (includeChildrenRecursively) {
-			super.includePath(path, context, includeChildrenRecursively);
+			super.include(context, includeChildrenRecursively);
 		} else {
-			this.included = true;
-			this.callee.includePath(UNKNOWN_PATH, context, false);
+			if (!this.included) this.includeNode(context);
+			this.callee.include(context, false);
 		}
 		this.callee.includeCallArguments(context, this.interaction);
+	}
+
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		if (!this.deoptimized) this.applyDeoptimizations();
+		this.callee.includePath(UNKNOWN_PATH, context);
 	}
 
 	initialise(): void {
@@ -79,7 +80,7 @@ export default class NewExpression extends NodeBase<ast.NewExpression> {
 		renderCallArguments(code, options, this);
 	}
 
-	protected applyDeoptimizations(): void {
+	applyDeoptimizations() {
 		this.deoptimized = true;
 		this.callee.deoptimizeArgumentsOnInteractionAtPath(
 			this.interaction,

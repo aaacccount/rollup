@@ -17,10 +17,7 @@ export default class MethodDefinition extends PropertyBase<ast.MethodDefinition>
 	type!: NodeType.tMethodDefinition;
 	value!: FunctionExpression;
 	decorators!: Decorator[];
-
 	hasEffects(context: HasEffectsContext): boolean {
 		return super.hasEffects(context) || checkEffectForNodes(this.decorators, context);
 	}
-
-	protected applyDeoptimizations() {}
 }

@@ -38,7 +38,6 @@ export default class ArrowFunctionExpression extends FunctionBase<ast.ArrowFunct
 	}
 
 	hasEffects(): boolean {
-		if (!this.deoptimized) this.applyDeoptimizations();
 		return false;
 	}
 
@@ -47,12 +46,15 @@ export default class ArrowFunctionExpression extends FunctionBase<ast.ArrowFunct
 		interaction: NodeInteraction,
 		context: HasEffectsContext
 	): boolean {
+		if (
+			this.annotationNoSideEffects &&
+			path.length === 0 &&
+			interaction.type === INTERACTION_CALLED
+		) {
+			return false;
+		}
 		if (super.hasEffectsOnInteractionAtPath(path, interaction, context)) {
 			return true;
-		}
-
-		if (this.annotationNoSideEffects) {
-			return false;
 		}
 
 		if (interaction.type === INTERACTION_CALLED) {
@@ -76,15 +78,21 @@ export default class ArrowFunctionExpression extends FunctionBase<ast.ArrowFunct
 		return isIIFE || super.onlyFunctionCallUsed();
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
-		super.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
+		super.include(context, includeChildrenRecursively);
 		for (const parameter of this.params) {
 			if (!(parameter instanceof Identifier)) {
-				parameter.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+				parameter.include(context, includeChildrenRecursively);
+			}
+		}
+	}
+
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		this.body.includePath(UNKNOWN_PATH, context);
+		for (const parameter of this.params) {
+			if (!(parameter instanceof Identifier)) {
+				parameter.includePath(UNKNOWN_PATH, context);
 			}
 		}
 	}

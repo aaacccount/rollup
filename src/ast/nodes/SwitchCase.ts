@@ -7,11 +7,15 @@ import {
 	renderStatementList
 } from '../../utils/renderHelpers';
 import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
 import type * as nodes from './node-unions';
 import type { SwitchCaseParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import {
+	doNotDeoptimize,
+	type IncludeChildren,
+	NodeBase,
+	onlyIncludeSelfNoDeoptimize
+} from './shared/Node';
 
 export default class SwitchCase extends NodeBase<ast.SwitchCase> {
 	parent!: SwitchCaseParent;
@@ -29,33 +33,32 @@ export default class SwitchCase extends NodeBase<ast.SwitchCase> {
 		return false;
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		this.included = true;
-		this.test?.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+		this.test?.include(context, includeChildrenRecursively);
 		for (const node of this.consequent) {
 			if (includeChildrenRecursively || node.shouldBeIncluded(context))
-				node.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+				node.include(context, includeChildrenRecursively);
 		}
 	}
 
 	render(code: MagicString, options: RenderOptions, nodeRenderOptions?: NodeRenderOptions): void {
-		if (this.consequent.length > 0) {
-			if (this.test) {
-				this.test.render(code, options);
+		if (this.test) {
+			this.test.render(code, options);
+			if (this.test.start === this.start + 4) {
+				code.prependLeft(this.test.start, ' ');
 			}
+		}
+		if (this.consequent.length > 0) {
 			const testEnd = this.test
 				? this.test.end
 				: findFirstOccurrenceOutsideComment(code.original, 'default', this.start) + 7;
 			const consequentStart = findFirstOccurrenceOutsideComment(code.original, ':', testEnd) + 1;
 			renderStatementList(this.consequent, code, consequentStart, nodeRenderOptions!.end!, options);
-		} else {
-			super.render(code, options);
 		}
 	}
 }
 
 SwitchCase.prototype.needsBoundaries = true;
+SwitchCase.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+SwitchCase.prototype.applyDeoptimizations = doNotDeoptimize;

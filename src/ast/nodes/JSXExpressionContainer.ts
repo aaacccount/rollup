@@ -1,6 +1,8 @@
 import type MagicString from 'magic-string';
 import type { ast, NormalizedJsxOptions } from '../../rollup/types';
 import type { RenderOptions } from '../../utils/renderHelpers';
+import type { InclusionContext } from '../ExecutionContext';
+import { UNKNOWN_PATH } from '../utils/PathTracker';
 import type JSXEmptyExpression from './JSXEmptyExpression';
 import type * as nodes from './node-unions';
 import type { JSXExpressionContainerParent } from './node-unions';
@@ -11,6 +13,12 @@ export default class JSXExpressionContainer extends NodeBase<ast.JSXExpressionCo
 	parent!: JSXExpressionContainerParent;
 	type!: NodeType.tJSXExpressionContainer;
 	expression!: nodes.Expression | JSXEmptyExpression;
+
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		if (!this.deoptimized) this.applyDeoptimizations();
+		this.expression.includePath(UNKNOWN_PATH, context);
+	}
 
 	render(code: MagicString, options: RenderOptions): void {
 		const { mode } = this.scope.context.options.jsx as NormalizedJsxOptions;

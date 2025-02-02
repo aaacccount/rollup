@@ -4,14 +4,19 @@ import type { RenderOptions } from '../../utils/renderHelpers';
 import type { DeoptimizableEntity } from '../DeoptimizableEntity';
 import { type HasEffectsContext, type InclusionContext } from '../ExecutionContext';
 import TrackingScope from '../scopes/TrackingScope';
-import type { ObjectPath } from '../utils/PathTracker';
-import { EMPTY_PATH, SHARED_RECURSION_TRACKER, UNKNOWN_PATH } from '../utils/PathTracker';
+import { EMPTY_PATH, SHARED_RECURSION_TRACKER } from '../utils/PathTracker';
+import { tryCastLiteralValueToBoolean } from '../utils/tryCastLiteralValueToBoolean';
 import type Identifier from './Identifier';
 import type * as nodes from './node-unions';
 import type { IfStatementParent } from './node-unions';
 import * as NodeType from './NodeType';
 import { type LiteralValueOrUnknown, UnknownValue } from './shared/Expression';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import {
+	doNotDeoptimize,
+	type IncludeChildren,
+	NodeBase,
+	onlyIncludeSelfNoDeoptimize
+} from './shared/Node';
 
 const unset = Symbol('unset');
 
@@ -48,11 +53,7 @@ export default class IfStatement extends NodeBase<ast.IfStatement> implements De
 		return testValue ? this.consequent.hasEffects(context) : !!this.alternate?.hasEffects(context);
 	}
 
-	includePath(
-		_: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		this.included = true;
 		if (includeChildrenRecursively) {
 			this.includeRecursively(includeChildrenRecursively, context);
@@ -122,14 +123,10 @@ export default class IfStatement extends NodeBase<ast.IfStatement> implements De
 		this.renderHoistedDeclarations(hoistedDeclarations, code, getPropertyAccess);
 	}
 
-	protected applyDeoptimizations() {}
-
 	private getTestValue(): LiteralValueOrUnknown {
 		if (this.testValue === unset) {
-			return (this.testValue = this.test.getLiteralValueAtPath(
-				EMPTY_PATH,
-				SHARED_RECURSION_TRACKER,
-				this
+			return (this.testValue = tryCastLiteralValueToBoolean(
+				this.test.getLiteralValueAtPath(EMPTY_PATH, SHARED_RECURSION_TRACKER, this)
 			));
 		}
 		return this.testValue;
@@ -137,13 +134,13 @@ export default class IfStatement extends NodeBase<ast.IfStatement> implements De
 
 	private includeKnownTest(context: InclusionContext, testValue: LiteralValueOrUnknown) {
 		if (this.test.shouldBeIncluded(context)) {
-			this.test.includePath(UNKNOWN_PATH, context, false);
+			this.test.include(context, false);
 		}
 		if (testValue && this.consequent.shouldBeIncluded(context)) {
-			this.consequent.includePath(UNKNOWN_PATH, context, false, { asSingleStatement: true });
+			this.consequent.include(context, false, { asSingleStatement: true });
 		}
 		if (!testValue && this.alternate?.shouldBeIncluded(context)) {
-			this.alternate.includePath(UNKNOWN_PATH, context, false, { asSingleStatement: true });
+			this.alternate.include(context, false, { asSingleStatement: true });
 		}
 	}
 
@@ -151,22 +148,22 @@ export default class IfStatement extends NodeBase<ast.IfStatement> implements De
 		includeChildrenRecursively: true | 'variables',
 		context: InclusionContext
 	) {
-		this.test.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
-		this.consequent.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
-		this.alternate?.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+		this.test.include(context, includeChildrenRecursively);
+		this.consequent.include(context, includeChildrenRecursively);
+		this.alternate?.include(context, includeChildrenRecursively);
 	}
 
 	private includeUnknownTest(context: InclusionContext) {
-		this.test.includePath(UNKNOWN_PATH, context, false);
+		this.test.include(context, false);
 		const { brokenFlow } = context;
 		let consequentBrokenFlow = false;
 		if (this.consequent.shouldBeIncluded(context)) {
-			this.consequent.includePath(UNKNOWN_PATH, context, false, { asSingleStatement: true });
+			this.consequent.include(context, false, { asSingleStatement: true });
 			consequentBrokenFlow = context.brokenFlow;
 			context.brokenFlow = brokenFlow;
 		}
 		if (this.alternate?.shouldBeIncluded(context)) {
-			this.alternate.includePath(UNKNOWN_PATH, context, false, { asSingleStatement: true });
+			this.alternate.include(context, false, { asSingleStatement: true });
 			context.brokenFlow = context.brokenFlow && consequentBrokenFlow;
 		}
 	}
@@ -210,3 +207,6 @@ export default class IfStatement extends NodeBase<ast.IfStatement> implements De
 		return false;
 	}
 }
+
+IfStatement.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+IfStatement.prototype.applyDeoptimizations = doNotDeoptimize;

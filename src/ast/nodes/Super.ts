@@ -2,6 +2,7 @@ import type { ast } from '../../rollup/types';
 import type { InclusionContext } from '../ExecutionContext';
 import type { NodeInteraction } from '../NodeInteractions';
 import type { EntityPathTracker, ObjectPath } from '../utils/PathTracker';
+import { EMPTY_PATH } from '../utils/PathTracker';
 import type Variable from '../variables/Variable';
 import type { SuperParent } from './node-unions';
 import type * as NodeType from './NodeType';
@@ -28,12 +29,13 @@ export default class Super extends NodeBase<ast.Super> {
 		this.variable.deoptimizePath(path);
 	}
 
-	includePath(path: ObjectPath, context: InclusionContext): void {
-		if (!this.included) {
-			this.included = true;
-			this.scope.context.includeVariableInModule(this.variable, path);
-		} else if (path.length > 0) {
-			this.variable.includePath(path, context);
-		}
+	include(context: InclusionContext): void {
+		if (!this.included) this.includeNode(context);
+	}
+
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		if (!this.deoptimized) this.applyDeoptimizations();
+		this.scope.context.includeVariableInModule(this.variable, EMPTY_PATH, context);
 	}
 }

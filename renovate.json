@@ -24,9 +24,8 @@
       "matchPackageNames": [
         "node",
         "npm",
-        "fsevents",
         "core-js",
-        "unicode-width"
+        "getrandom"
       ],
       "enabled": false
     },

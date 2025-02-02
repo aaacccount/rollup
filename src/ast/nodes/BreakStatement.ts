@@ -1,14 +1,9 @@
 import type { ast } from '../../rollup/types';
-import {
-	createInclusionContext,
-	type HasEffectsContext,
-	type InclusionContext
-} from '../ExecutionContext';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
+import { type HasEffectsContext, type InclusionContext } from '../ExecutionContext';
 import type Identifier from './Identifier';
 import type { BreakStatementParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { NodeBase } from './shared/Node';
+import { doNotDeoptimize, NodeBase, onlyIncludeSelfNoDeoptimize } from './shared/Node';
 
 export default class BreakStatement extends NodeBase<ast.BreakStatement> {
 	parent!: BreakStatementParent;
@@ -27,10 +22,10 @@ export default class BreakStatement extends NodeBase<ast.BreakStatement> {
 		return false;
 	}
 
-	includePath(_: ObjectPath, context: InclusionContext): void {
+	include(context: InclusionContext): void {
 		this.included = true;
 		if (this.label) {
-			this.label.includePath(UNKNOWN_PATH, createInclusionContext());
+			this.label.include(context);
 			context.includedLabels.add(this.label.name);
 		} else {
 			context.hasBreak = true;
@@ -38,3 +33,6 @@ export default class BreakStatement extends NodeBase<ast.BreakStatement> {
 		context.brokenFlow = true;
 	}
 }
+
+BreakStatement.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+BreakStatement.prototype.applyDeoptimizations = doNotDeoptimize;

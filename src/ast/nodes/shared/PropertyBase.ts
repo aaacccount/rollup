@@ -23,7 +23,7 @@ import {
 	type LiteralValueOrUnknown,
 	UNKNOWN_RETURN_EXPRESSION
 } from './Expression';
-import { NodeBase } from './Node';
+import { doNotDeoptimize, NodeBase, onlyIncludeSelfNoDeoptimize } from './Node';
 
 export default class PropertyBase<T extends AstNode>
 	extends NodeBase<T>
@@ -141,8 +141,6 @@ export default class PropertyBase<T extends AstNode>
 		return this.getAccessedValue()[0].hasEffectsOnInteractionAtPath(path, interaction, context);
 	}
 
-	protected applyDeoptimizations() {}
-
 	protected getAccessedValue(): [expression: ExpressionEntity, isPure: boolean] {
 		if (this.accessedValue === null) {
 			if (this.kind === 'get') {
@@ -160,3 +158,6 @@ export default class PropertyBase<T extends AstNode>
 		return this.accessedValue;
 	}
 }
+
+PropertyBase.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+PropertyBase.prototype.applyDeoptimizations = doNotDeoptimize;

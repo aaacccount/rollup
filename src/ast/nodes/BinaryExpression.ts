@@ -3,14 +3,15 @@ import type { ast } from '../../rollup/types';
 import { BLANK } from '../../utils/blank';
 import type { NodeRenderOptions, RenderOptions } from '../../utils/renderHelpers';
 import type { DeoptimizableEntity } from '../DeoptimizableEntity';
-import type { HasEffectsContext } from '../ExecutionContext';
+import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
 import type { NodeInteraction } from '../NodeInteractions';
 import { INTERACTION_ACCESSED } from '../NodeInteractions';
 import {
 	EMPTY_PATH,
 	type EntityPathTracker,
 	type ObjectPath,
-	SHARED_RECURSION_TRACKER
+	SHARED_RECURSION_TRACKER,
+	UNKNOWN_PATH
 } from '../utils/PathTracker';
 import ExpressionStatement from './ExpressionStatement';
 import type { LiteralValue } from './Literal';
@@ -18,7 +19,7 @@ import type * as nodes from './node-unions';
 import type { BinaryExpressionParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import { type LiteralValueOrUnknown, UnknownValue } from './shared/Expression';
-import { NodeBase } from './shared/Node';
+import { doNotDeoptimize, NodeBase } from './shared/Node';
 
 const binaryOperators: Record<
 	ast.BinaryExpression['operator'],
@@ -92,6 +93,13 @@ export default class BinaryExpression
 		return type !== INTERACTION_ACCESSED || path.length > 1;
 	}
 
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		if (this.operator === 'in') {
+			this.right.includePath(UNKNOWN_PATH, context);
+		}
+	}
+
 	removeAnnotations(code: MagicString) {
 		this.left.removeAnnotations(code);
 	}
@@ -105,3 +113,5 @@ export default class BinaryExpression
 		this.right.render(code, options);
 	}
 }
+
+BinaryExpression.prototype.applyDeoptimizations = doNotDeoptimize;

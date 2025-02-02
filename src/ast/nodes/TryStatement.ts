@@ -1,11 +1,16 @@
 import type { ast, NormalizedTreeshakingOptions } from '../../rollup/types';
 import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
 import type BlockStatement from './BlockStatement';
 import type CatchClause from './CatchClause';
 import type { TryStatementParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { INCLUDE_PARAMETERS, type IncludeChildren, NodeBase } from './shared/Node';
+import {
+	doNotDeoptimize,
+	INCLUDE_PARAMETERS,
+	type IncludeChildren,
+	NodeBase,
+	onlyIncludeSelfNoDeoptimize
+} from './shared/Node';
 
 export default class TryStatement extends NodeBase<ast.TryStatement> {
 	parent!: TryStatementParent;
@@ -25,11 +30,7 @@ export default class TryStatement extends NodeBase<ast.TryStatement> {
 		);
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		const tryCatchDeoptimization = (
 			this.scope.context.options.treeshake as NormalizedTreeshakingOptions
 		)?.tryCatchDeoptimization;
@@ -37,8 +38,7 @@ export default class TryStatement extends NodeBase<ast.TryStatement> {
 		if (!this.directlyIncluded || !tryCatchDeoptimization) {
 			this.included = true;
 			this.directlyIncluded = true;
-			this.block.includePath(
-				UNKNOWN_PATH,
+			this.block.include(
 				context,
 				tryCatchDeoptimization ? INCLUDE_PARAMETERS : includeChildrenRecursively
 			);
@@ -52,9 +52,12 @@ export default class TryStatement extends NodeBase<ast.TryStatement> {
 			}
 		}
 		if (this.handler !== null) {
-			this.handler.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+			this.handler.include(context, includeChildrenRecursively);
 			context.brokenFlow = brokenFlow;
 		}
-		this.finalizer?.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+		this.finalizer?.include(context, includeChildrenRecursively);
 	}
 }
+
+TryStatement.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+TryStatement.prototype.applyDeoptimizations = doNotDeoptimize;

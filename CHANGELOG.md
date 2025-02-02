@@ -1,5 +1,220 @@
 # rollup changelog
 
+## 4.34.0
+
+_2025-02-01_
+
+### Features
+
+- Tree-shake unused properties in object literals (re-implements #5420) (#5737)
+
+### Pull Requests
+
+- [#5737](https://github.com/rollup/rollup/pull/5737): Reapply object tree-shaking (@lukastaegert, @TrickyPi)
+
+## 4.33.0
+
+_2025-02-01_
+
+### Features
+
+- Correctly detect literal value of more negated expressions (#5812)
+
+### Bug Fixes
+
+- Use the correct with/assert attribute key in dynamic imports (#5818)
+- Fix an issue where logical expressions were considered to have the wrong value (#5819)
+
+### Pull Requests
+
+- [#5812](https://github.com/rollup/rollup/pull/5812): feat: optimize the literal value of unary expressions (@TrickyPi)
+- [#5816](https://github.com/rollup/rollup/pull/5816): fix(deps): update swc monorepo (major) (@renovate[bot], @lukastaegert)
+- [#5817](https://github.com/rollup/rollup/pull/5817): fix(deps): lock file maintenance minor/patch updates (@renovate[bot], @lukastaegert)
+- [#5818](https://github.com/rollup/rollup/pull/5818): support for changing the attributes key for dynamic imports (@TrickyPi)
+- [#5819](https://github.com/rollup/rollup/pull/5819): Return UnknownValue if getLiteralValueAtPath is called recursively within logical expressions (@TrickyPi)
+- [#5820](https://github.com/rollup/rollup/pull/5820): return null (@kingma-sbw)
+
+## 4.32.1
+
+_2025-01-28_
+
+### Bug Fixes
+
+- Fix possible crash when optimizing logical expressions (#5804)
+
+### Pull Requests
+
+- [#5804](https://github.com/rollup/rollup/pull/5804): fix: set hasDeoptimizedCache to true as early as possible (@TrickyPi)
+- [#5813](https://github.com/rollup/rollup/pull/5813): Fix typo (@kantuni)
+
+## 4.32.0
+
+_2025-01-24_
+
+### Features
+
+- Add watch.onInvalidate option to trigger actions immediately when a file is changed (#5799)
+
+### Bug Fixes
+
+- Fix incorrect urls in CLI warnings (#5809)
+
+### Pull Requests
+
+- [#5799](https://github.com/rollup/rollup/pull/5799): Feature/watch on invalidate (@drebrez, @lukastaegert)
+- [#5808](https://github.com/rollup/rollup/pull/5808): chore(deps): update dependency vite to v6.0.9 [security] (@renovate[bot])
+- [#5809](https://github.com/rollup/rollup/pull/5809): fix: avoid duplicate rollupjs.org prefix (@GauBen, @lukastaegert)
+- [#5810](https://github.com/rollup/rollup/pull/5810): chore(deps): update dependency @shikijs/vitepress-twoslash to v2 (@renovate[bot])
+- [#5811](https://github.com/rollup/rollup/pull/5811): fix(deps): lock file maintenance minor/patch updates (@renovate[bot])
+
+## 4.31.0
+
+_2025-01-19_
+
+### Features
+
+- Do not immediately quit when trying to use watch mode from within non-TTY environments (#5803)
+
+### Bug Fixes
+
+- Handle files with more than one UTF-8 BOM header (#5806)
+
+### Pull Requests
+
+- [#5792](https://github.com/rollup/rollup/pull/5792): fix(deps): update rust crate swc_compiler_base to v8 (@renovate[bot])
+- [#5793](https://github.com/rollup/rollup/pull/5793): fix(deps): lock file maintenance minor/patch updates (@renovate[bot])
+- [#5794](https://github.com/rollup/rollup/pull/5794): chore(deps): lock file maintenance (@renovate[bot])
+- [#5801](https://github.com/rollup/rollup/pull/5801): chore(deps): update dependency eslint-config-prettier to v10 (@renovate[bot])
+- [#5802](https://github.com/rollup/rollup/pull/5802): fix(deps): lock file maintenance minor/patch updates (@renovate[bot])
+- [#5803](https://github.com/rollup/rollup/pull/5803): Support watch mode in yarn, gradle and containers (@lukastaegert)
+- [#5806](https://github.com/rollup/rollup/pull/5806): fix: strip all BOMs (@TrickyPi)
+
+## 4.30.1
+
+_2025-01-07_
+
+### Bug Fixes
+
+- Prevent invalid code when simplifying unary expressions in switch cases (#5786)
+
+### Pull Requests
+
+- [#5786](https://github.com/rollup/rollup/pull/5786): fix: consider that literals cannot following switch case. (@TrickyPi)
+
+## 4.30.0
+
+_2025-01-06_
+
+### Features
+
+- Inline values of resolvable unary expressions for improved tree-shaking (#5775)
+
+### Pull Requests
+
+- [#5775](https://github.com/rollup/rollup/pull/5775): feat: enhance the treehshaking for unary expression (@TrickyPi)
+- [#5783](https://github.com/rollup/rollup/pull/5783): Improve CI caching for node_modules (@lukastaegert)
+
+## 4.29.2
+
+_2025-01-05_
+
+### Bug Fixes
+
+- Keep import attributes when using dynamic ESM `import()` expressions from CommonJS (#5781)
+
+### Pull Requests
+
+- [#5772](https://github.com/rollup/rollup/pull/5772): Improve caching on CI (@lukastaegert)
+- [#5773](https://github.com/rollup/rollup/pull/5773): fix(deps): lock file maintenance minor/patch updates (@renovate[bot])
+- [#5780](https://github.com/rollup/rollup/pull/5780): feat: use picocolors instead of colorette (@re-taro)
+- [#5781](https://github.com/rollup/rollup/pull/5781): fix: keep import attributes for cjs format (@TrickyPi)
+
+## 4.29.1
+
+_2024-12-21_
+
+### Bug Fixes
+
+- Fix crash from deoptimized logical expressions (#5771)
+
+### Pull Requests
+
+- [#5769](https://github.com/rollup/rollup/pull/5769): Remove unnecessary lifetimes (@lukastaegert)
+- [#5771](https://github.com/rollup/rollup/pull/5771): fix: do not optimize the literal value if the cache is deoptimized (@TrickyPi)
+
+## 4.29.0
+
+_2024-12-20_
+
+### Features
+
+- Treat objects as truthy and always check second argument to better simplify logical expressions (#5763)
+
+### Pull Requests
+
+- [#5759](https://github.com/rollup/rollup/pull/5759): docs: add utf-8 encoding to JSON file reading (@chouchouji)
+- [#5760](https://github.com/rollup/rollup/pull/5760): fix(deps): lock file maintenance minor/patch updates (@renovate[bot])
+- [#5763](https://github.com/rollup/rollup/pull/5763): fix: introduce UnknownFalsyValue for enhancing if statement tree-shaking (@TrickyPi)
+- [#5766](https://github.com/rollup/rollup/pull/5766): chore(deps): update dependency @rollup/plugin-node-resolve to v16 (@renovate[bot])
+- [#5767](https://github.com/rollup/rollup/pull/5767): fix(deps): lock file maintenance minor/patch updates (@renovate[bot])
+
+## 4.28.1
+
+_2024-12-06_
+
+### Bug Fixes
+
+- Support running Rollup natively on LoongArch (#5749)
+- Add optional `debugId` to `SourceMap` types (#5751)
+
+### Pull Requests
+
+- [#5749](https://github.com/rollup/rollup/pull/5749): feat: add support for LoongArch (@darkyzhou)
+- [#5751](https://github.com/rollup/rollup/pull/5751): feat: Add `debugId` to `SourceMap` types (@timfish, @lukastaegert)
+- [#5752](https://github.com/rollup/rollup/pull/5752): chore(deps): update dependency mocha to v11 (@renovate[bot])
+- [#5753](https://github.com/rollup/rollup/pull/5753): chore(deps): update dependency vite to v6 (@renovate[bot])
+- [#5754](https://github.com/rollup/rollup/pull/5754): fix(deps): update swc monorepo (major) (@renovate[bot])
+- [#5755](https://github.com/rollup/rollup/pull/5755): chore(deps): lock file maintenance minor/patch updates (@renovate[bot])
+- [#5756](https://github.com/rollup/rollup/pull/5756): Test if saving the Cargo cache can speed up FreeBSD (@lukastaegert)
+
+## 4.28.0
+
+_2024-11-30_
+
+### Features
+
+- Allow to specify how to handle import attributes when transpiling Rollup config files (#5743)
+
+### Pull Requests
+
+- [#5743](https://github.com/rollup/rollup/pull/5743): fix: supports modify the import attributes key in the config file (@TrickyPi, @lukastaegert)
+- [#5747](https://github.com/rollup/rollup/pull/5747): chore(deps): update codecov/codecov-action action to v5 (@renovate[bot])
+- [#5748](https://github.com/rollup/rollup/pull/5748): chore(deps): lock file maintenance minor/patch updates (@renovate[bot])
+
+## 4.27.4
+
+_2024-11-23_
+
+### Bug Fixes
+
+- Update bundled magic-string to support sourcemap debug ids (#5740)
+
+### Pull Requests
+
+- [#5740](https://github.com/rollup/rollup/pull/5740): chore(deps): lock file maintenance minor/patch updates (@renovate[bot])
+
+## 4.27.3
+
+_2024-11-18_
+
+### Bug Fixes
+
+- Revert object property tree-shaking for now (#5736)
+
+### Pull Requests
+
+- [#5736](https://github.com/rollup/rollup/pull/5736): Revert object tree-shaking until some issues have been resolved (@lukastaegert)
+
 ## 4.27.2
 
 _2024-11-15_

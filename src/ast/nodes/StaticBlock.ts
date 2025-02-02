@@ -8,11 +8,10 @@ import {
 import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
 import BlockScope from '../scopes/BlockScope';
 import type ChildScope from '../scopes/ChildScope';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
 import type * as nodes from './node-unions';
 import type { StaticBlockParent } from './node-unions';
-import type * as NodeType from './NodeType';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import * as NodeType from './NodeType';
+import { type IncludeChildren, NodeBase, type StatementNode } from './shared/Node';
 
 export default class StaticBlock extends NodeBase<ast.StaticBlock> {
 	parent!: StaticBlockParent;
@@ -30,15 +29,11 @@ export default class StaticBlock extends NodeBase<ast.StaticBlock> {
 		return false;
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		this.included = true;
 		for (const node of this.body) {
 			if (includeChildrenRecursively || node.shouldBeIncluded(context))
-				node.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+				node.include(context, includeChildrenRecursively);
 		}
 	}
 
@@ -51,4 +46,8 @@ export default class StaticBlock extends NodeBase<ast.StaticBlock> {
 			super.render(code, options);
 		}
 	}
+}
+
+export function isStaticBlock(statement: StatementNode): statement is StaticBlock {
+	return statement.type === NodeType.StaticBlock;
 }

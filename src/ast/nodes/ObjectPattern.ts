@@ -13,7 +13,7 @@ import * as NodeType from './NodeType';
 import type Property from './Property';
 import type RestElement from './RestElement';
 import type { ExpressionEntity } from './shared/Expression';
-import { NodeBase } from './shared/Node';
+import { doNotDeoptimize, NodeBase, onlyIncludeSelfNoDeoptimize } from './shared/Node';
 import type { DeclarationPatternNode } from './shared/Pattern';
 import type { VariableKind } from './shared/VariableKinds';
 
@@ -129,6 +129,7 @@ export default class ObjectPattern
 			}
 		}
 	}
-
-	protected applyDeoptimizations() {}
 }
+
+ObjectPattern.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+ObjectPattern.prototype.applyDeoptimizations = doNotDeoptimize;

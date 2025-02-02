@@ -4,12 +4,16 @@ import { NO_SEMICOLON, type RenderOptions } from '../../utils/renderHelpers';
 import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
 import BlockScope from '../scopes/BlockScope';
 import type ChildScope from '../scopes/ChildScope';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
 import type * as nodes from './node-unions';
 import type { ForStatementParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import { hasLoopBodyEffects, includeLoopBody } from './shared/loops';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import {
+	doNotDeoptimize,
+	type IncludeChildren,
+	NodeBase,
+	onlyIncludeSelfNoDeoptimize
+} from './shared/Node';
 import type VariableDeclaration from './VariableDeclaration';
 
 export default class ForStatement extends NodeBase<ast.ForStatement> {
@@ -35,17 +39,13 @@ export default class ForStatement extends NodeBase<ast.ForStatement> {
 		return hasLoopBodyEffects(context, this.body);
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		this.included = true;
-		this.init?.includePath(UNKNOWN_PATH, context, includeChildrenRecursively, {
+		this.init?.include(context, includeChildrenRecursively, {
 			asSingleStatement: true
 		});
-		this.test?.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
-		this.update?.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+		this.test?.include(context, includeChildrenRecursively);
+		this.update?.include(context, includeChildrenRecursively);
 		includeLoopBody(context, this.body, includeChildrenRecursively);
 	}
 
@@ -56,3 +56,6 @@ export default class ForStatement extends NodeBase<ast.ForStatement> {
 		this.body.render(code, options);
 	}
 }
+
+ForStatement.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+ForStatement.prototype.applyDeoptimizations = doNotDeoptimize;

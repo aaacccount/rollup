@@ -132,9 +132,9 @@ export default class Identifier
 					)))
 		) {
 			if (this.variable && !this.variable.included) {
-				this.scope.context.includeVariableInModule(this.variable, EMPTY_PATH);
+				this.scope.context.includeVariableInModule(this.variable, EMPTY_PATH, context);
 			}
-			init.includePath(destructuredInitPath, context, false);
+			init.includePath(destructuredInitPath, context);
 			return true;
 		}
 		return false;

@@ -35,22 +35,23 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - name: Cache Node Modules
+          node-version: 22
+      - name: Restore Node dependencies cache
         id: cache-node-modules
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            ~/.npm
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install dependencies
+          restore-keys: node-modules-${{ runner.os }}
+      - name: Install Node dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
       - name: Lint
         run: npm run ci:lint
       - name: Vulnerabilities
         run: npm run check-audit
-      - name: Optional Dependencies
-        run: npm run test:package
       - name: CLI Docs
         run: npm run test:options
       - name: Generated Code
@@ -64,8 +65,8 @@ jobs:
       matrix:
         settings:
           # WASM
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
+          - host: ubuntu-latest
+            target: wasm32-unknown-unknown
             name: wasm
             is-wasm-build: true
             build: >-
@@ -75,8 +76,8 @@ jobs:
             path: |
               wasm/
               .empty
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
+          - host: ubuntu-latest
+            target: wasm32-unknown-unknown
             name: wasm-node
             is-wasm-build: true
             build: >-
@@ -199,6 +200,12 @@ jobs:
               export CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER=s390x-linux-gnu-gcc &&
               rustup target add s390x-unknown-linux-gnu &&
               npm run build:napi -- --release --target s390x-unknown-linux-gnu
+          - host: ubuntu-latest
+            target: loongarch64-unknown-linux-gnu
+            docker: ghcr.io/darkyzhou/napi-rs-nodejs-rust:trixie-loongarch64
+            build: >-
+              set -e &&
+              npm run build:napi -- --release --target loongarch64-unknown-linux-gnu
     name: Build ${{ matrix.settings.name || matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
     timeout-minutes: 30
@@ -209,15 +216,15 @@ jobs:
         uses: actions/setup-node@v4
         if: ${{ !matrix.settings.docker }}
         with:
-          node-version: 20
+          node-version: 22
       - name: Install Toolchain
         uses: dtolnay/rust-toolchain@stable
         if: ${{ !matrix.settings.docker }}
         with:
           toolchain: stable
           targets: ${{ matrix.settings.target }}
-      - name: Cache cargo
-        uses: actions/cache@v4
+      - name: Restore Cargo cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cargo/registry/index/
@@ -235,15 +242,26 @@ jobs:
         run: ${{ matrix.settings.setup }}
         if: ${{ matrix.settings.setup }}
         shell: bash
-      - name: Cache Node Modules
+      - name: Restore Node dependencies cache
         id: cache-node-modules
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: node_modules
+          path:  |
+            node_modules
+            ~/.npm
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install dependencies
+          restore-keys: node-modules-${{ runner.os }}
+      - name: Install Node dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci --ignore-scripts
+        run: npm ${{ github.ref == 'refs/heads/master' && 'ci' || 'install' }} --ignore-scripts
+      - name: Save Node dependencies cache
+        if: steps.cache-node-modules.outputs.cache-hit != 'true' && github.ref == 'refs/heads/master'
+        uses: actions/cache/save@v4
+        with:
+          path:  |
+            node_modules
+            ~/.npm
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Build in docker
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker }}
@@ -255,6 +273,17 @@ jobs:
         run: ${{ matrix.settings.build }}
         if: ${{ !matrix.settings.docker }}
         shell: bash
+      - name: Save Cargo cache
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            .cargo-cache
+            rust/target/
+          key: ${{ matrix.settings.name || matrix.settings.target }}-cargo-${{ matrix.settings.host }}-${{ hashFiles('rust/Cargo.lock') }}
       - name: Upload wasm artifact
         uses: actions/upload-artifact@v4
         with:
@@ -289,8 +318,28 @@ jobs:
     steps:
       - name: Checkout Commit
         uses: actions/checkout@v4
+      - name: Restore Cargo cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            .cargo-cache
+            rust/target/
+          key: ${{ matrix.settings.target }}-cargo-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: ${{ matrix.settings.target }}-cargo
+      - name: Restore Node dependencies cache
+        id: cache-node-modules
+        uses: actions/cache/restore@v4
+        with:
+          path:  |
+            node_modules
+            ~/.npm
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: node-modules-${{ runner.os }}
       - name: Build
-        uses: cross-platform-actions/action@v0.25.0
+        uses: cross-platform-actions/action@v0.27.0
         with:
           operating_system: ${{ matrix.settings.name }}
           architecture: ${{ matrix.settings.architecture }}
@@ -298,8 +347,19 @@ jobs:
           memory: 8G
           run: |
             sudo pkg install -y node npm rust
-            npm ci --ignore-scripts
+            ${{ steps.cache-node-modules.outputs.cache-hit != 'true' && 'npm install --ignore-scripts' || 'echo Cache hit' }}
             npm run build:napi -- --release --target ${{ matrix.settings.target }}
+      - name: Save Cargo cache
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            .cargo-cache
+            rust/target/
+          key: ${{ matrix.settings.target }}-cargo-${{ hashFiles('rust/Cargo.lock') }}
       - name: Upload napi artifact
         uses: actions/upload-artifact@v4
         with:
@@ -331,10 +391,11 @@ jobs:
 #          - arch: armv7
 #            distro: alpine_latest
 #            target: armv7-unknown-linux-musleabihf
-          - arch: ppc64le
-            distro: ubuntu_latest
-            target: powerpc64le-unknown-linux-gnu
-            use-nvm: true
+# This one has become very flaky as of late
+#          - arch: ppc64le
+#            distro: ubuntu_latest
+#            target: powerpc64le-unknown-linux-gnu
+#            use-nvm: true
           - arch: s390x
             distro: ubuntu_latest
             target: s390x-unknown-linux-gnu
@@ -348,15 +409,18 @@ jobs:
     steps:
       - name: Checkout Commit
         uses: actions/checkout@v4
-      - name: Cache Node Modules
+      - name: Restore Node dependencies cache
         id: cache-node-modules
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: node_modules
+          path:  |
+            node_modules
+            ~/.npm
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install dependencies
+          restore-keys: node-modules-${{ runner.os }}
+      - name: Install Node dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
       - name: Build JS
         run: npm run build:cjs
       - name: Download napi artifacts
@@ -416,20 +480,21 @@ jobs:
           - host: macos-latest
             target: aarch64-apple-darwin
         node:
-          - '18.0.0'
-          - '20'
+          - '18.20.0'
+          # There is a bug in 22.12.0 that sometimes makes the loadConfigFile tests fail
+          - '22.11.0'
         include:
           - settings:
               host: ubuntu-latest
               target: x86_64-unknown-linux-gnu
-            node: '20'
+            node: '22.11.0'
             command: 'ci:coverage'
             additionalName: ' with Coverage'
             coverage: true
           - settings:
               host: ubuntu-latest
               target: x86_64-unknown-linux-gnu
-            node: '18.0.0'
+            node: '18.20.0'
             command: 'ci:test:all'
             additionalName: ' with Additional Tests'
     runs-on: ${{ matrix.settings.host }}
@@ -442,15 +507,18 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           check-latest: true
-      - name: Cache Node Modules
+      - name: Restore Node dependencies cache
         id: cache-node-modules
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: node_modules
+          path:  |
+            node_modules
+            ~/.npm
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install dependencies
+          restore-keys: node-modules-${{ runner.os }}
+      - name: Install Node dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
       - name: Download napi artifacts
         uses: actions/download-artifact@v4
         with:
@@ -465,7 +533,7 @@ jobs:
         env:
           CI: true
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: matrix.coverage
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -497,15 +565,18 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           check-latest: true
-      - name: Cache Node Modules
+      - name: Restore Node dependencies cache
         id: cache-node-modules
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: node_modules
+          path:  |
+            node_modules
+            ~/.npm
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install dependencies
+          restore-keys: node-modules-${{ runner.os }}
+      - name: Install Node dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:

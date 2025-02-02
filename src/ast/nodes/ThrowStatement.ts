@@ -2,11 +2,10 @@ import type MagicString from 'magic-string';
 import type { ast } from '../../rollup/types';
 import type { RenderOptions } from '../../utils/renderHelpers';
 import { type InclusionContext } from '../ExecutionContext';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
 import type * as nodes from './node-unions';
 import type { ThrowStatementParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import { type IncludeChildren, NodeBase, onlyIncludeSelf } from './shared/Node';
 
 export default class ThrowStatement extends NodeBase<ast.ThrowStatement> {
 	parent!: ThrowStatementParent;
@@ -17,13 +16,9 @@ export default class ThrowStatement extends NodeBase<ast.ThrowStatement> {
 		return true;
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
-		this.included = true;
-		this.argument.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
+		if (!this.included) this.includeNode(context);
+		this.argument.include(context, includeChildrenRecursively);
 		context.brokenFlow = true;
 	}
 
@@ -34,3 +29,5 @@ export default class ThrowStatement extends NodeBase<ast.ThrowStatement> {
 		}
 	}
 }
+
+ThrowStatement.prototype.includeNode = onlyIncludeSelf;

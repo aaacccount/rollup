@@ -6,7 +6,7 @@ import type ImportAttribute from './ImportAttribute';
 import type Literal from './Literal';
 import type { ExportAllDeclarationParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { NodeBase } from './shared/Node';
+import { doNotDeoptimize, NodeBase, onlyIncludeSelfNoDeoptimize } from './shared/Node';
 
 export default class ExportAllDeclaration extends NodeBase<ast.ExportAllDeclaration> {
 	parent!: ExportAllDeclarationParent;
@@ -28,8 +28,8 @@ export default class ExportAllDeclaration extends NodeBase<ast.ExportAllDeclarat
 	render(code: MagicString, _options: RenderOptions, nodeRenderOptions?: NodeRenderOptions): void {
 		code.remove(nodeRenderOptions!.start!, nodeRenderOptions!.end!);
 	}
-
-	protected applyDeoptimizations() {}
 }
 
 ExportAllDeclaration.prototype.needsBoundaries = true;
+ExportAllDeclaration.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+ExportAllDeclaration.prototype.applyDeoptimizations = doNotDeoptimize;

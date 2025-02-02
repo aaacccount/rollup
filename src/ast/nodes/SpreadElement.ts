@@ -1,5 +1,5 @@
 import type { ast, NormalizedTreeshakingOptions } from '../../rollup/types';
-import type { HasEffectsContext } from '../ExecutionContext';
+import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
 import type { NodeInteraction } from '../NodeInteractions';
 import { NODE_INTERACTION_UNKNOWN_ACCESS } from '../NodeInteractions';
 import {
@@ -48,7 +48,13 @@ export default class SpreadElement extends NodeBase<ast.SpreadElement> {
 		);
 	}
 
-	protected applyDeoptimizations(): void {
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		if (!this.deoptimized) this.applyDeoptimizations();
+		this.argument.includePath(UNKNOWN_PATH, context);
+	}
+
+	applyDeoptimizations() {
 		this.deoptimized = true;
 		// Only properties of properties of the argument could become subject to reassignment
 		// This will also reassign the return values of iterators

@@ -5,7 +5,7 @@ import { EMPTY_PATH } from '../utils/PathTracker';
 import type * as nodes from './node-unions';
 import type { DecoratorParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { NodeBase } from './shared/Node';
+import { NodeBase, onlyIncludeSelf } from './shared/Node';
 
 export default class Decorator extends NodeBase<ast.Decorator> {
 	parent!: DecoratorParent;
@@ -22,3 +22,5 @@ export default class Decorator extends NodeBase<ast.Decorator> {
 		);
 	}
 }
+
+Decorator.prototype.includeNode = onlyIncludeSelf;

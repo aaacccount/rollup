@@ -9,7 +9,7 @@ import type { RestElementParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import { type ExpressionEntity } from './shared/Expression';
 import type { IncludeChildren } from './shared/Node';
-import { NodeBase } from './shared/Node';
+import { NodeBase, onlyIncludeSelf } from './shared/Node';
 import type { DeclarationPatternNode } from './shared/Pattern';
 import type { VariableKind } from './shared/VariableKinds';
 
@@ -88,22 +88,18 @@ export default class RestElement
 			) || this.included);
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	) {
-		this.included = true;
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren) {
+		if (!this.included) this.includeNode(context);
 		// This should just include the identifier, its properties should be
 		// included where the variable is used.
-		this.argument.includePath(EMPTY_PATH, context, includeChildrenRecursively);
+		this.argument.include(context, includeChildrenRecursively);
 	}
 
 	markDeclarationReached(): void {
 		(this.argument as nodes.BindingPattern).markDeclarationReached();
 	}
 
-	protected applyDeoptimizations(): void {
+	applyDeoptimizations() {
 		this.deoptimized = true;
 		if (this.declarationInit !== null) {
 			this.declarationInit.deoptimizePath([UnknownKey, UnknownKey]);
@@ -111,6 +107,8 @@ export default class RestElement
 		}
 	}
 }
+
+RestElement.prototype.includeNode = onlyIncludeSelf;
 
 const getIncludedPatternPath = (destructuredInitPath: ObjectPath): ObjectPath =>
 	destructuredInitPath.at(-1) === UnknownKey

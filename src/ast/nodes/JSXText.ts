@@ -2,7 +2,7 @@ import type MagicString from 'magic-string';
 import type { ast, NormalizedJsxOptions } from '../../rollup/types';
 import type { JSXTextParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { NodeBase } from './shared/Node';
+import { NodeBase, onlyIncludeSelf } from './shared/Node';
 
 export default class JSXText extends NodeBase<ast.JSXText> {
 	parent!: JSXTextParent;
@@ -19,3 +19,5 @@ export default class JSXText extends NodeBase<ast.JSXText> {
 		}
 	}
 }
+
+JSXText.prototype.includeNode = onlyIncludeSelf;

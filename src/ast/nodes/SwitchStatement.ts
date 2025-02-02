@@ -8,12 +8,11 @@ import {
 } from '../ExecutionContext';
 import BlockScope from '../scopes/BlockScope';
 import type ChildScope from '../scopes/ChildScope';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
 import type * as nodes from './node-unions';
 import type { SwitchStatementParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import type { IncludeChildren } from './shared/Node';
-import { NodeBase } from './shared/Node';
+import { doNotDeoptimize, NodeBase, onlyIncludeSelfNoDeoptimize } from './shared/Node';
 import type SwitchCase from './SwitchCase';
 
 export default class SwitchStatement extends NodeBase<ast.SwitchStatement> {
@@ -51,13 +50,9 @@ export default class SwitchStatement extends NodeBase<ast.SwitchStatement> {
 		return false;
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		this.included = true;
-		this.discriminant.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+		this.discriminant.include(context, includeChildrenRecursively);
 		const { brokenFlow, hasBreak } = context;
 		context.hasBreak = false;
 		let onlyHasBrokenFlow = true;
@@ -75,7 +70,7 @@ export default class SwitchStatement extends NodeBase<ast.SwitchStatement> {
 				isCaseIncluded = switchCase.hasEffects(hasEffectsContext);
 			}
 			if (isCaseIncluded) {
-				switchCase.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+				switchCase.include(context, includeChildrenRecursively);
 				onlyHasBrokenFlow &&= context.brokenFlow && !context.hasBreak;
 				context.hasBreak = false;
 				context.brokenFlow = brokenFlow;
@@ -114,3 +109,6 @@ export default class SwitchStatement extends NodeBase<ast.SwitchStatement> {
 		}
 	}
 }
+
+SwitchStatement.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+SwitchStatement.prototype.applyDeoptimizations = doNotDeoptimize;

@@ -2,12 +2,17 @@ import type { ast } from '../../rollup/types';
 import type { InclusionContext } from '../ExecutionContext';
 import type ChildScope from '../scopes/ChildScope';
 import ClassBodyScope from '../scopes/ClassBodyScope';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
+import { UNKNOWN_PATH } from '../utils/PathTracker';
 import type MethodDefinition from './MethodDefinition';
 import type { ClassBodyParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import type PropertyDefinition from './PropertyDefinition';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import {
+	doNotDeoptimize,
+	type IncludeChildren,
+	NodeBase,
+	onlyIncludeSelfNoDeoptimize
+} from './shared/Node';
 import type StaticBlock from './StaticBlock';
 
 export default class ClassBody extends NodeBase<ast.ClassBody> {
@@ -20,15 +25,11 @@ export default class ClassBody extends NodeBase<ast.ClassBody> {
 		this.scope = new ClassBodyScope(parentScope, this.parent);
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		this.included = true;
-		this.scope.context.includeVariableInModule(this.scope.thisVariable, UNKNOWN_PATH);
+		this.scope.context.includeVariableInModule(this.scope.thisVariable, UNKNOWN_PATH, context);
 		for (const definition of this.body) {
-			definition.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+			definition.include(context, includeChildrenRecursively);
 		}
 	}
 
@@ -47,6 +48,7 @@ export default class ClassBody extends NodeBase<ast.ClassBody> {
 		}
 		return super.parseNode(esTreeNode);
 	}
-
-	protected applyDeoptimizations() {}
 }
+
+ClassBody.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+ClassBody.prototype.applyDeoptimizations = doNotDeoptimize;

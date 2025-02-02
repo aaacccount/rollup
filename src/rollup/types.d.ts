@@ -1,3 +1,4 @@
+import type { ChokidarOptions as OriginalChokidarOptions } from 'chokidar';
 import type * as ast from './ast-types';
 
 export type { ast };
@@ -87,6 +88,7 @@ export interface SourceMap {
 	sources: string[];
 	sourcesContent?: string[];
 	version: number;
+	debugId?: string;
 	toString(): string;
 	toUrl(): string;
 }
@@ -921,30 +923,9 @@ export interface MergedRollupOptions extends InputOptionsWithPlugins {
 
 export function rollup(options: RollupOptions): Promise<RollupBuild>;
 
-export interface ChokidarOptions {
-	alwaysStat?: boolean;
-	atomic?: boolean | number;
-	awaitWriteFinish?:
-		| {
-				pollInterval?: number;
-				stabilityThreshold?: number;
-		  }
-		| boolean;
-	binaryInterval?: number;
-	cwd?: string;
-	depth?: number;
-	disableGlobbing?: boolean;
-	followSymlinks?: boolean;
-	ignoreInitial?: boolean;
-	ignorePermissionErrors?: boolean;
-	ignored?: any;
-	interval?: number;
-	persistent?: boolean;
-	useFsEvents?: boolean;
-	usePolling?: boolean;
-}
-
 export type RollupWatchHooks = 'onError' | 'onStart' | 'onBundleStart' | 'onBundleEnd' | 'onEnd';
+
+export type ChokidarOptions = OriginalChokidarOptions;
 
 export interface WatcherOptions {
 	buildDelay?: number;
@@ -953,6 +934,7 @@ export interface WatcherOptions {
 	exclude?: string | RegExp | (string | RegExp)[];
 	include?: string | RegExp | (string | RegExp)[];
 	skipWrite?: boolean;
+	onInvalidate?: (id: string) => void;
 }
 
 export interface RollupWatchOptions extends InputOptions {

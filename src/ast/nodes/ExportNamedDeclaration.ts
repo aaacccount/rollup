@@ -9,7 +9,7 @@ import type ImportAttribute from './ImportAttribute';
 import type Literal from './Literal';
 import type { ExportNamedDeclarationParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { NodeBase } from './shared/Node';
+import { doNotDeoptimize, NodeBase, onlyIncludeSelfNoDeoptimize } from './shared/Node';
 import type VariableDeclaration from './VariableDeclaration';
 
 export default class ExportNamedDeclaration extends NodeBase<ast.ExportNamedDeclaration> {
@@ -48,8 +48,8 @@ export default class ExportNamedDeclaration extends NodeBase<ast.ExportNamedDecl
 			this.declaration.render(code, options, { end, start });
 		}
 	}
-
-	protected applyDeoptimizations() {}
 }
 
 ExportNamedDeclaration.prototype.needsBoundaries = true;
+ExportNamedDeclaration.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+ExportNamedDeclaration.prototype.applyDeoptimizations = doNotDeoptimize;

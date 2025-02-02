@@ -16,7 +16,7 @@ import type { UpdateExpressionParent } from './node-unions';
 import * as NodeType from './NodeType';
 import { UNKNOWN_EXPRESSION } from './shared/Expression';
 import type { IncludeChildren } from './shared/Node';
-import { NodeBase } from './shared/Node';
+import { NodeBase, onlyIncludeSelf } from './shared/Node';
 
 export default class UpdateExpression extends NodeBase<ast.UpdateExpression> {
 	parent!: UpdateExpressionParent;
@@ -35,13 +35,8 @@ export default class UpdateExpression extends NodeBase<ast.UpdateExpression> {
 		return path.length > 1 || type !== INTERACTION_ACCESSED;
 	}
 
-	includePath(
-		_: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	) {
-		if (!this.deoptimized) this.applyDeoptimizations();
-		this.included = true;
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren) {
+		if (!this.included) this.includeNode(context);
 		this.argument.includeAsAssignmentTarget(context, includeChildrenRecursively, true);
 	}
 
@@ -90,7 +85,7 @@ export default class UpdateExpression extends NodeBase<ast.UpdateExpression> {
 		}
 	}
 
-	protected applyDeoptimizations(): void {
+	applyDeoptimizations() {
 		this.deoptimized = true;
 		this.argument.deoptimizePath(EMPTY_PATH);
 		if (this.argument instanceof Identifier) {
@@ -100,3 +95,5 @@ export default class UpdateExpression extends NodeBase<ast.UpdateExpression> {
 		this.scope.context.requestTreeshakingPass();
 	}
 }
+
+UpdateExpression.prototype.includeNode = onlyIncludeSelf;

@@ -11,7 +11,7 @@ import type JSXNamespacedName from './JSXNamespacedName';
 import type Literal from './Literal';
 import type { JSXAttributeParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { NodeBase } from './shared/Node';
+import { NodeBase, onlyIncludeSelf } from './shared/Node';
 
 export default class JSXAttribute extends NodeBase<ast.JSXAttribute> {
 	parent!: JSXAttributeParent;
@@ -39,3 +39,5 @@ export default class JSXAttribute extends NodeBase<ast.JSXAttribute> {
 		}
 	}
 }
+
+JSXAttribute.prototype.includeNode = onlyIncludeSelf;

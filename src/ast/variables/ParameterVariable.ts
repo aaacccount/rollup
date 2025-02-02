@@ -18,6 +18,7 @@ import { MAX_PATH_DEPTH } from '../utils/limitPathLength';
 import type { ObjectPath, ObjectPathKey } from '../utils/PathTracker';
 import {
 	EntityPathTracker,
+	IncludedTopLevelPathTracker,
 	SHARED_RECURSION_TRACKER,
 	UNKNOWN_PATH,
 	UnknownKey
@@ -36,11 +37,14 @@ const EMPTY_PATH_TRACKER = new EntityPathTracker();
 const UNKNOWN_DEOPTIMIZED_ENTITY = new Set<ExpressionEntity>([UNKNOWN_EXPRESSION]);
 
 export default class ParameterVariable extends LocalVariable {
+	protected includedPathTracker = new IncludedTopLevelPathTracker();
+	private argumentsToBeDeoptimized = new Set<ExpressionEntity>();
 	private deoptimizationInteractions: DeoptimizationInteraction[] = [];
 	private deoptimizations = new EntityPathTracker();
 	private deoptimizedFields = new Set<ObjectPathKey>();
-	private argumentsToBeDeoptimized = new Set<ExpressionEntity>();
 	private expressionsDependingOnKnownValue: DeoptimizableEntity[] = [];
+	private knownValue: ExpressionEntity | null = null;
+	private knownValueLiteral: LiteralValueOrUnknown = UnknownValue;
 
 	constructor(
 		name: string,
@@ -74,10 +78,6 @@ export default class ParameterVariable extends LocalVariable {
 				entity.deoptimizePath([...this.initPath, field]);
 			}
 			for (const { interaction, path } of this.deoptimizationInteractions) {
-				if (this.initPath.length + path.length > MAX_PATH_DEPTH) {
-					deoptimizeInteraction(interaction);
-					continue;
-				}
 				entity.deoptimizeArgumentsOnInteractionAtPath(
 					interaction,
 					[...this.initPath, ...path],
@@ -105,8 +105,6 @@ export default class ParameterVariable extends LocalVariable {
 		this.markReassigned();
 	}
 
-	private knownValue: ExpressionEntity | null = null;
-	private knownValueLiteral: LiteralValueOrUnknown = UnknownValue;
 	/**
 	 * Update the known value of the parameter variable.
 	 * Must be called for every function call, so it can track all the arguments,
@@ -138,19 +136,16 @@ export default class ParameterVariable extends LocalVariable {
 			return;
 		}
 
-		const oldValue = this.knownValueLiteral;
-		if (typeof oldValue === 'symbol') {
-			this.markReassigned();
-			return;
-		}
-		// add tracking for the new argument
-		const newValue = argument.getLiteralValueAtPath(this.initPath, SHARED_RECURSION_TRACKER, this);
-		if (newValue !== oldValue) {
+		const { knownValueLiteral } = this;
+		if (
+			typeof knownValueLiteral === 'symbol' ||
+			argument.getLiteralValueAtPath(this.initPath, SHARED_RECURSION_TRACKER, this) !==
+				knownValueLiteral
+		) {
 			this.markReassigned();
 		}
 	}
 
-	private frozenValue: ExpressionEntity | null = null;
 	/**
 	 * This function freezes the known value of the parameter variable,
 	 * so the optimization starts with a certain ExpressionEntity.
@@ -158,10 +153,7 @@ export default class ParameterVariable extends LocalVariable {
 	 * @returns the frozen value
 	 */
 	private getKnownValue(): ExpressionEntity {
-		if (this.frozenValue === null) {
-			this.frozenValue = this.knownValue || UNKNOWN_EXPRESSION;
-		}
-		return this.frozenValue;
+		return this.knownValue || UNKNOWN_EXPRESSION;
 	}
 
 	getLiteralValueAtPath(
@@ -218,7 +210,8 @@ export default class ParameterVariable extends LocalVariable {
 			this.deoptimizationInteractions.length >= MAX_TRACKED_INTERACTIONS ||
 			(path.length === 1 &&
 				(this.deoptimizedFields.has(UnknownKey) ||
-					(interaction.type === INTERACTION_CALLED && this.deoptimizedFields.has(path[0]))))
+					(interaction.type === INTERACTION_CALLED && this.deoptimizedFields.has(path[0])))) ||
+			this.initPath.length + path.length > MAX_PATH_DEPTH
 		) {
 			deoptimizeInteraction(interaction);
 			return;

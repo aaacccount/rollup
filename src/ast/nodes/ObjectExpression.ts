@@ -22,7 +22,7 @@ import * as NodeType from './NodeType';
 import type Property from './Property';
 import { type ExpressionEntity, type LiteralValueOrUnknown } from './shared/Expression';
 import type { IncludeChildren } from './shared/Node';
-import { NodeBase } from './shared/Node';
+import { doNotDeoptimize, NodeBase } from './shared/Node';
 import { ObjectEntity, type ObjectProperty } from './shared/ObjectEntity';
 import { OBJECT_PROTOTYPE } from './shared/ObjectPrototype';
 import SpreadElement from './SpreadElement';
@@ -87,14 +87,20 @@ export default class ObjectExpression
 		return this.getObjectEntity().hasEffectsOnInteractionAtPath(path, interaction, context);
 	}
 
-	includePath(
-		path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	) {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren) {
+		if (!this.included) this.includeNode(context);
+		this.getObjectEntity().include(context, includeChildrenRecursively);
+		this.protoProp?.include(context, includeChildrenRecursively);
+	}
+
+	includeNode(context: InclusionContext) {
 		this.included = true;
-		this.getObjectEntity().includePath(path, context, includeChildrenRecursively);
-		this.protoProp?.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+		this.protoProp?.includePath(UNKNOWN_PATH, context);
+	}
+
+	includePath(path: ObjectPath, context: InclusionContext) {
+		if (!this.included) this.includeNode(context);
+		this.getObjectEntity().includePath(path, context);
 	}
 
 	render(
@@ -130,8 +136,6 @@ export default class ObjectExpression
 			}
 		}
 	}
-
-	protected applyDeoptimizations() {}
 
 	private getObjectEntity(): ObjectEntity {
 		if (this.objectEntity !== null) {
@@ -176,3 +180,5 @@ export default class ObjectExpression
 		return (this.objectEntity = new ObjectEntity(properties, prototype));
 	}
 }
+
+ObjectExpression.prototype.applyDeoptimizations = doNotDeoptimize;

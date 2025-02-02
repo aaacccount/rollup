@@ -7,7 +7,7 @@ import type { InclusionContext } from '../ExecutionContext';
 import type * as nodes from './node-unions';
 import type { ExpressionStatementParent } from './node-unions';
 import * as NodeType from './NodeType';
-import { NodeBase } from './shared/Node';
+import { doNotDeoptimize, NodeBase, onlyIncludeSelfNoDeoptimize } from './shared/Node';
 
 export default class ExpressionStatement extends NodeBase<ast.ExpressionStatement> {
 	parent!: ExpressionStatementParent;
@@ -48,6 +48,7 @@ export default class ExpressionStatement extends NodeBase<ast.ExpressionStatemen
 
 		return super.shouldBeIncluded(context);
 	}
-
-	protected applyDeoptimizations() {}
 }
+
+ExpressionStatement.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+ExpressionStatement.prototype.applyDeoptimizations = doNotDeoptimize;

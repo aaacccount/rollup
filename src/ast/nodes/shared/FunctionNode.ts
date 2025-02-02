@@ -1,9 +1,5 @@
 import type { ast } from '../../../rollup/types';
-import {
-	createInclusionContext,
-	type HasEffectsContext,
-	type InclusionContext
-} from '../../ExecutionContext';
+import { type HasEffectsContext, type InclusionContext } from '../../ExecutionContext';
 import type { NodeInteraction } from '../../NodeInteractions';
 import { INTERACTION_CALLED } from '../../NodeInteractions';
 import type ChildScope from '../../scopes/ChildScope';
@@ -55,8 +51,6 @@ export default class FunctionNode<
 	}
 
 	hasEffects(context: HasEffectsContext): boolean {
-		if (!this.deoptimized) this.applyDeoptimizations();
-
 		if (this.annotationNoSideEffects) {
 			return false;
 		}
@@ -69,13 +63,18 @@ export default class FunctionNode<
 		interaction: NodeInteraction,
 		context: HasEffectsContext
 	): boolean {
-		if (super.hasEffectsOnInteractionAtPath(path, interaction, context)) return true;
-
-		if (this.annotationNoSideEffects) {
+		if (
+			this.annotationNoSideEffects &&
+			path.length === 0 &&
+			interaction.type === INTERACTION_CALLED
+		) {
 			return false;
 		}
+		if (super.hasEffectsOnInteractionAtPath(path, interaction, context)) {
+			return true;
+		}
 
-		if (interaction.type === INTERACTION_CALLED) {
+		if (path.length === 0 && interaction.type === INTERACTION_CALLED) {
 			const thisInit = context.replacedVariableInits.get(this.scope.thisVariable);
 			context.replacedVariableInits.set(
 				this.scope.thisVariable,
@@ -89,7 +88,10 @@ export default class FunctionNode<
 				returnYield: true,
 				this: interaction.withNew
 			};
-			if (this.body.hasEffects(context)) return true;
+			if (this.body.hasEffects(context)) {
+				this.hasCachedEffects = true;
+				return true;
+			}
 			context.brokenFlow = brokenFlow;
 			if (thisInit) {
 				replacedVariableInits.set(this.scope.thisVariable, thisInit);
@@ -101,17 +103,23 @@ export default class FunctionNode<
 		return false;
 	}
 
-	includePath(
-		path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
-		super.includePath(path, context, includeChildrenRecursively);
-		this.id?.includePath(UNKNOWN_PATH, createInclusionContext());
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
+		super.include(context, includeChildrenRecursively);
+		this.id?.include(context);
 		const hasArguments = this.scope.argumentsVariable.included;
 		for (const parameter of this.params) {
 			if (!(parameter instanceof Identifier) || hasArguments) {
-				parameter.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+				parameter.include(context, includeChildrenRecursively);
+			}
+		}
+	}
+
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		const hasArguments = this.scope.argumentsVariable.included;
+		for (const parameter of this.params) {
+			if (!(parameter instanceof Identifier) || hasArguments) {
+				parameter.includePath(UNKNOWN_PATH, context);
 			}
 		}
 	}

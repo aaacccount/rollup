@@ -1,6 +1,6 @@
 import type { ast } from '../../rollup/types';
 import type { DeoptimizableEntity } from '../DeoptimizableEntity';
-import type { HasEffectsContext } from '../ExecutionContext';
+import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
 import type { NodeInteraction, NodeInteractionCalled } from '../NodeInteractions';
 import {
 	type EntityPathTracker,
@@ -70,7 +70,17 @@ export default class ArrayExpression extends NodeBase<ast.ArrayExpression> {
 		return this.getObjectEntity().hasEffectsOnInteractionAtPath(path, interaction, context);
 	}
 
-	protected applyDeoptimizations(): void {
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		if (!this.deoptimized) this.applyDeoptimizations();
+		for (const element of this.elements) {
+			if (element) {
+				element?.includePath(UNKNOWN_PATH, context);
+			}
+		}
+	}
+
+	applyDeoptimizations() {
 		this.deoptimized = true;
 		let hasSpread = false;
 		for (let index = 0; index < this.elements.length; index++) {

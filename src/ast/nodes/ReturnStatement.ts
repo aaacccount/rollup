@@ -2,12 +2,12 @@ import type MagicString from 'magic-string';
 import type { ast } from '../../rollup/types';
 import type { RenderOptions } from '../../utils/renderHelpers';
 import { type HasEffectsContext, type InclusionContext } from '../ExecutionContext';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
+import { UNKNOWN_PATH } from '../utils/PathTracker';
 import type * as nodes from './node-unions';
 import type { ReturnStatementParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import { UNKNOWN_EXPRESSION } from './shared/Expression';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import { doNotDeoptimize, type IncludeChildren, NodeBase } from './shared/Node';
 
 export default class ReturnStatement extends NodeBase<ast.ReturnStatement> {
 	parent!: ReturnStatementParent;
@@ -20,14 +20,15 @@ export default class ReturnStatement extends NodeBase<ast.ReturnStatement> {
 		return false;
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
-		this.included = true;
-		this.argument?.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
+		if (!this.included) this.includeNode(context);
+		this.argument?.include(context, includeChildrenRecursively);
 		context.brokenFlow = true;
+	}
+
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		this.argument?.includePath(UNKNOWN_PATH, context);
 	}
 
 	initialise(): void {
@@ -44,3 +45,5 @@ export default class ReturnStatement extends NodeBase<ast.ReturnStatement> {
 		}
 	}
 }
+
+ReturnStatement.prototype.applyDeoptimizations = doNotDeoptimize;

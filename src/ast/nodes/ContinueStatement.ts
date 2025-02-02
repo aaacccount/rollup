@@ -1,14 +1,9 @@
 import type { ast } from '../../rollup/types';
-import {
-	createInclusionContext,
-	type HasEffectsContext,
-	type InclusionContext
-} from '../ExecutionContext';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
+import { type HasEffectsContext, type InclusionContext } from '../ExecutionContext';
 import type Identifier from './Identifier';
 import type { ContinueStatementParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { NodeBase } from './shared/Node';
+import { doNotDeoptimize, NodeBase, onlyIncludeSelfNoDeoptimize } from './shared/Node';
 
 export default class ContinueStatement extends NodeBase<ast.ContinueStatement> {
 	parent!: ContinueStatementParent;
@@ -27,10 +22,10 @@ export default class ContinueStatement extends NodeBase<ast.ContinueStatement> {
 		return false;
 	}
 
-	includePath(_: ObjectPath, context: InclusionContext): void {
+	include(context: InclusionContext): void {
 		this.included = true;
 		if (this.label) {
-			this.label.includePath(UNKNOWN_PATH, createInclusionContext());
+			this.label.include(context);
 			context.includedLabels.add(this.label.name);
 		} else {
 			context.hasContinue = true;
@@ -38,3 +33,6 @@ export default class ContinueStatement extends NodeBase<ast.ContinueStatement> {
 		context.brokenFlow = true;
 	}
 }
+
+ContinueStatement.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+ContinueStatement.prototype.applyDeoptimizations = doNotDeoptimize;

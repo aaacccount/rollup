@@ -7,7 +7,7 @@ import { logIllegalImportReassignment, logMissingExport } from '../../utils/logs
 import type { NodeRenderOptions, RenderOptions } from '../../utils/renderHelpers';
 import type { DeoptimizableEntity } from '../DeoptimizableEntity';
 import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
-import { createHasEffectsContext } from '../ExecutionContext';
+import { createHasEffectsContext, createInclusionContext } from '../ExecutionContext';
 import type {
 	NodeInteraction,
 	NodeInteractionAccessed,
@@ -107,12 +107,13 @@ export default class MemberExpression
 	parent!: MemberExpressionParent;
 	object!: nodes.Expression | Super;
 	property!: nodes.Expression | PrivateIdentifier;
-	propertyKey!: ObjectPathKey | null;
+	propertyKey!: ObjectPathKey;
 	type!: NodeType.tMemberExpression;
 	variable: Variable | null = null;
 	protected assignmentInteraction!: NodeInteractionAssigned;
 	private accessInteraction!: NodeInteractionAccessed;
 	private expressionsToBeDeoptimized: DeoptimizableEntity[] = [];
+	declare private dynamicPropertyKey: ObjectPathKey | null;
 
 	get computed(): boolean {
 		return isFlagSet(this.flags, Flag.computed);
@@ -183,7 +184,7 @@ export default class MemberExpression
 			if (path.length < MAX_PATH_DEPTH) {
 				this.object.deoptimizeArgumentsOnInteractionAtPath(
 					interaction,
-					[this.getPropertyKey(), ...path],
+					this.propertyKey === UnknownKey ? UNKNOWN_PATH : [this.propertyKey, ...path],
 					recursionTracker
 				);
 			} else {
@@ -198,10 +199,14 @@ export default class MemberExpression
 	}
 
 	deoptimizeCache(): void {
+		if (this.propertyKey === this.dynamicPropertyKey) return;
 		const { expressionsToBeDeoptimized, object } = this;
 		this.expressionsToBeDeoptimized = EMPTY_ARRAY as unknown as DeoptimizableEntity[];
-		this.propertyKey = UnknownKey;
+		this.dynamicPropertyKey = this.propertyKey;
 		object.deoptimizePath(UNKNOWN_PATH);
+		if (this.included) {
+			object.includePath(UNKNOWN_PATH, createInclusionContext());
+		}
 		for (const expression of expressionsToBeDeoptimized) {
 			expression.deoptimizeCache();
 		}
@@ -212,7 +217,7 @@ export default class MemberExpression
 		if (this.variable) {
 			this.variable.deoptimizePath(path);
 		} else if (!this.isUndefined) {
-			const propertyKey = this.getPropertyKey();
+			const { propertyKey } = this;
 			this.object.deoptimizePath([
 				propertyKey === UnknownKey ? UnknownNonAccessorKey : propertyKey,
 				...(path.length < MAX_PATH_DEPTH
@@ -233,13 +238,10 @@ export default class MemberExpression
 		if (this.isUndefined) {
 			return undefined;
 		}
-		if (this.propertyKey !== UnknownKey && path.length < MAX_PATH_DEPTH) {
-			this.expressionsToBeDeoptimized.push(origin);
-			return this.object.getLiteralValueAtPath(
-				[this.getPropertyKey(), ...path],
-				recursionTracker,
-				origin
-			);
+		const propertyKey = this.getDynamicPropertyKey();
+		if (propertyKey !== UnknownKey && path.length < MAX_PATH_DEPTH) {
+			if (propertyKey !== this.propertyKey) this.expressionsToBeDeoptimized.push(origin);
+			return this.object.getLiteralValueAtPath([propertyKey, ...path], recursionTracker, origin);
 		}
 		return UnknownValue;
 	}
@@ -275,10 +277,11 @@ export default class MemberExpression
 		if (this.isUndefined) {
 			return [UNDEFINED_EXPRESSION, false];
 		}
-		if (this.propertyKey !== UnknownKey && path.length < MAX_PATH_DEPTH) {
-			this.expressionsToBeDeoptimized.push(origin);
+		const propertyKey = this.getDynamicPropertyKey();
+		if (propertyKey !== UnknownKey && path.length < MAX_PATH_DEPTH) {
+			if (propertyKey !== this.propertyKey) this.expressionsToBeDeoptimized.push(origin);
 			return this.object.getReturnExpressionWhenCalledAtPath(
-				[this.getPropertyKey(), ...path],
+				[propertyKey, ...path],
 				interaction,
 				recursionTracker,
 				origin
@@ -338,7 +341,7 @@ export default class MemberExpression
 		}
 		if (path.length < MAX_PATH_DEPTH) {
 			return this.object.hasEffectsOnInteractionAtPath(
-				[this.getPropertyKey(), ...path],
+				[this.getDynamicPropertyKey(), ...path],
 				interaction,
 				context
 			);
@@ -361,23 +364,37 @@ export default class MemberExpression
 		);
 	}
 
-	includePath(
-		path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
+		if (!this.included) this.includeNode(context);
+		this.object.include(context, includeChildrenRecursively);
+		this.property.include(context, includeChildrenRecursively);
+	}
+
+	includeNode(context: InclusionContext) {
+		this.included = true;
 		if (!this.deoptimized) this.applyDeoptimizations();
-		this.includeProperties(
-			path,
-			[
-				this.getPropertyKey(),
-				...(path.length < MAX_PATH_DEPTH
-					? path
-					: [...path.slice(0, MAX_PATH_DEPTH), UnknownKey as ObjectPathKey])
-			],
-			context,
-			includeChildrenRecursively
-		);
+		if (this.variable) {
+			this.scope.context.includeVariableInModule(this.variable, EMPTY_PATH, context);
+		} else if (!this.isUndefined) {
+			this.object.includePath([this.propertyKey], context);
+		}
+	}
+
+	includePath(path: ObjectPath, context: InclusionContext): void {
+		if (!this.included) this.includeNode(context);
+		if (this.variable) {
+			this.variable?.includePath(path, context);
+		} else if (!this.isUndefined) {
+			this.object.includePath(
+				[
+					this.propertyKey,
+					...(path.length < MAX_PATH_DEPTH
+						? path
+						: [...path.slice(0, MAX_PATH_DEPTH), UnknownKey as ObjectPathKey])
+				],
+				context
+			);
+		}
 	}
 
 	includeAsAssignmentTarget(
@@ -387,14 +404,11 @@ export default class MemberExpression
 	): void {
 		if (!this.assignmentDeoptimized) this.applyAssignmentDeoptimization();
 		if (deoptimizeAccess) {
-			this.includePath([this.getPropertyKey()], context, includeChildrenRecursively);
+			this.include(context, includeChildrenRecursively);
 		} else {
-			this.includeProperties(
-				EMPTY_PATH,
-				[this.getPropertyKey()],
-				context,
-				includeChildrenRecursively
-			);
+			if (!this.included) this.includeNode(context);
+			this.object.include(context, includeChildrenRecursively);
+			this.property.include(context, includeChildrenRecursively);
 		}
 	}
 
@@ -421,7 +435,7 @@ export default class MemberExpression
 					createHasEffectsContext()
 				))
 		) {
-			init.includePath(destructuredInitPath, context, false);
+			init.include(context, false);
 			return true;
 		}
 		return false;
@@ -429,7 +443,8 @@ export default class MemberExpression
 
 	initialise(): void {
 		super.initialise();
-		this.propertyKey = getResolvablePropertyKey(this);
+		this.dynamicPropertyKey = getResolvablePropertyKey(this);
+		this.propertyKey = this.dynamicPropertyKey === null ? UnknownKey : this.dynamicPropertyKey;
 		this.accessInteraction = { args: [this.object], type: INTERACTION_ACCESSED };
 	}
 
@@ -468,7 +483,7 @@ export default class MemberExpression
 		};
 	}
 
-	protected applyDeoptimizations(): void {
+	applyDeoptimizations() {
 		this.deoptimized = true;
 		const { propertyReadSideEffects } = this.scope.context.options
 			.treeshake as NormalizedTreeshakingOptions;
@@ -478,10 +493,9 @@ export default class MemberExpression
 			propertyReadSideEffects &&
 			!(this.variable || this.isUndefined)
 		) {
-			const propertyKey = this.getPropertyKey();
 			this.object.deoptimizeArgumentsOnInteractionAtPath(
 				this.accessInteraction,
-				[propertyKey],
+				[this.propertyKey],
 				SHARED_RECURSION_TRACKER
 			);
 			this.scope.context.requestTreeshakingPass();
@@ -504,7 +518,7 @@ export default class MemberExpression
 		) {
 			this.object.deoptimizeArgumentsOnInteractionAtPath(
 				this.assignmentInteraction,
-				[this.getPropertyKey()],
+				[this.propertyKey],
 				SHARED_RECURSION_TRACKER
 			);
 			this.scope.context.requestTreeshakingPass();
@@ -516,7 +530,11 @@ export default class MemberExpression
 			const variable = this.scope.findVariable(this.object.name);
 			if (variable.isNamespace) {
 				if (this.variable) {
-					this.scope.context.includeVariableInModule(this.variable, UNKNOWN_PATH);
+					this.scope.context.includeVariableInModule(
+						this.variable,
+						UNKNOWN_PATH,
+						createInclusionContext()
+					);
 				}
 				this.scope.context.log(
 					LOGLEVEL_WARN,
@@ -527,18 +545,18 @@ export default class MemberExpression
 		}
 	}
 
-	private getPropertyKey(): ObjectPathKey {
-		if (this.propertyKey === null) {
-			this.propertyKey = UnknownKey;
+	private getDynamicPropertyKey(): ObjectPathKey {
+		if (this.dynamicPropertyKey === null) {
+			this.dynamicPropertyKey = this.propertyKey;
 			const value = this.property.getLiteralValueAtPath(EMPTY_PATH, SHARED_RECURSION_TRACKER, this);
-			return (this.propertyKey =
+			return (this.dynamicPropertyKey =
 				value === SymbolToStringTag
 					? value
 					: typeof value === 'symbol'
 						? UnknownKey
 						: String(value));
 		}
-		return this.propertyKey;
+		return this.dynamicPropertyKey;
 	}
 
 	private hasAccessEffect(context: HasEffectsContext) {
@@ -549,29 +567,11 @@ export default class MemberExpression
 			propertyReadSideEffects &&
 			(propertyReadSideEffects === 'always' ||
 				this.object.hasEffectsOnInteractionAtPath(
-					[this.getPropertyKey()],
+					[this.getDynamicPropertyKey()],
 					this.accessInteraction,
 					context
 				))
 		);
-	}
-
-	private includeProperties(
-		includedPath: ObjectPath,
-		objectPath: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	) {
-		if (!this.included) {
-			this.included = true;
-			if (this.variable) {
-				this.scope.context.includeVariableInModule(this.variable, includedPath);
-			}
-		} else if (includedPath.length > 0) {
-			this.variable?.includePath(includedPath, context);
-		}
-		this.object.includePath(objectPath, context, includeChildrenRecursively);
-		this.property.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
 	}
 }
 

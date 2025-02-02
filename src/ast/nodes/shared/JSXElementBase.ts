@@ -4,7 +4,6 @@ import type { NormalizedJsxOptions } from '../../../rollup/types';
 import { getRenderedJsxChildren } from '../../../utils/jsx';
 import type { RenderOptions } from '../../../utils/renderHelpers';
 import type { InclusionContext } from '../../ExecutionContext';
-import type { ObjectPath } from '../../utils/PathTracker';
 import type Variable from '../../variables/Variable';
 import JSXEmptyExpression from '../JSXEmptyExpression';
 import JSXExpressionContainer from '../JSXExpressionContainer';
@@ -13,7 +12,7 @@ import type { JSXElementParent, JSXFragmentParent } from '../node-unions';
 import type { JsxMode } from './jsxHelpers';
 import { getAndIncludeFactoryVariable } from './jsxHelpers';
 import type { IncludeChildren } from './Node';
-import { NodeBase } from './Node';
+import { doNotDeoptimize, NodeBase } from './Node';
 
 export default class JSXElementBase<T extends AstNode> extends NodeBase<T> {
 	parent!: JSXElementParent | JSXFragmentParent;
@@ -31,27 +30,27 @@ export default class JSXElementBase<T extends AstNode> extends NodeBase<T> {
 		}
 	}
 
-	includePath(
-		path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	) {
-		if (!this.included) {
-			const { factory, importSource, mode } = this.jsxMode;
-			if (factory) {
-				this.factory = factory;
-				this.factoryVariable = getAndIncludeFactoryVariable(
-					factory,
-					mode === 'preserve',
-					importSource,
-					this
-				);
-			}
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren) {
+		if (!this.included) this.includeNode(context);
+		for (const child of this.children) {
+			child.include(context, includeChildrenRecursively);
 		}
-		super.includePath(path, context, includeChildrenRecursively);
 	}
 
-	protected applyDeoptimizations() {}
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		const { factory, importSource, mode } = this.jsxMode;
+		if (factory) {
+			this.factory = factory;
+			this.factoryVariable = getAndIncludeFactoryVariable(
+				factory,
+				mode === 'preserve',
+				importSource,
+				this,
+				context
+			);
+		}
+	}
 
 	protected getRenderingMode(): JsxMode {
 		const jsx = this.scope.context.options.jsx as NormalizedJsxOptions;
@@ -91,3 +90,5 @@ export default class JSXElementBase<T extends AstNode> extends NodeBase<T> {
 		return { childrenEnd, firstChild, hasMultipleChildren };
 	}
 }
+
+JSXElementBase.prototype.applyDeoptimizations = doNotDeoptimize;

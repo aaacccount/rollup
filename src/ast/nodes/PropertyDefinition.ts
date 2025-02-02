@@ -1,9 +1,10 @@
 import type { ast } from '../../rollup/types';
 import type { DeoptimizableEntity } from '../DeoptimizableEntity';
-import type { HasEffectsContext } from '../ExecutionContext';
+import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
 import type { NodeInteraction, NodeInteractionCalled } from '../NodeInteractions';
 import { checkEffectForNodes } from '../utils/checkEffectForNodes';
 import type { EntityPathTracker, ObjectPath } from '../utils/PathTracker';
+import { UNKNOWN_PATH } from '../utils/PathTracker';
 import type Decorator from './Decorator';
 import type * as nodes from './node-unions';
 import type { PropertyDefinitionParent } from './node-unions';
@@ -16,7 +17,7 @@ import {
 	UNKNOWN_RETURN_EXPRESSION,
 	UnknownValue
 } from './shared/Expression';
-import { NodeBase } from './shared/Node';
+import { doNotDeoptimize, NodeBase } from './shared/Node';
 
 export default class PropertyDefinition extends NodeBase<ast.PropertyDefinition> {
 	parent!: PropertyDefinitionParent;
@@ -82,5 +83,13 @@ export default class PropertyDefinition extends NodeBase<ast.PropertyDefinition>
 		return !this.value || this.value.hasEffectsOnInteractionAtPath(path, interaction, context);
 	}
 
-	protected applyDeoptimizations() {}
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		this.value?.includePath(UNKNOWN_PATH, context);
+		for (const decorator of this.decorators) {
+			decorator.includePath(UNKNOWN_PATH, context);
+		}
+	}
 }
+
+PropertyDefinition.prototype.applyDeoptimizations = doNotDeoptimize;

@@ -1,5 +1,4 @@
 import type { HasEffectsContext, InclusionContext } from '../../ExecutionContext';
-import { UNKNOWN_PATH } from '../../utils/PathTracker';
 import type * as nodes from '../node-unions';
 
 export function hasLoopBodyEffects(context: HasEffectsContext, body: nodes.Statement): boolean {
@@ -26,7 +25,7 @@ export function includeLoopBody(
 	const { brokenFlow, hasBreak, hasContinue } = context;
 	context.hasBreak = false;
 	context.hasContinue = false;
-	body.includePath(UNKNOWN_PATH, context, includeChildrenRecursively, { asSingleStatement: true });
+	body.include(context, includeChildrenRecursively, { asSingleStatement: true });
 	context.hasBreak = hasBreak;
 	context.hasContinue = hasContinue;
 	context.brokenFlow = brokenFlow;

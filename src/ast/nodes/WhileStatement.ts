@@ -1,11 +1,15 @@
 import type { ast } from '../../rollup/types';
 import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
 import type * as nodes from './node-unions';
 import type { WhileStatementParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import { hasLoopBodyEffects, includeLoopBody } from './shared/loops';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import {
+	doNotDeoptimize,
+	type IncludeChildren,
+	NodeBase,
+	onlyIncludeSelfNoDeoptimize
+} from './shared/Node';
 
 export default class WhileStatement extends NodeBase<ast.WhileStatement> {
 	parent!: WhileStatementParent;
@@ -18,13 +22,12 @@ export default class WhileStatement extends NodeBase<ast.WhileStatement> {
 		return hasLoopBodyEffects(context, this.body);
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		this.included = true;
-		this.test.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+		this.test.include(context, includeChildrenRecursively);
 		includeLoopBody(context, this.body, includeChildrenRecursively);
 	}
 }
+
+WhileStatement.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+WhileStatement.prototype.applyDeoptimizations = doNotDeoptimize;

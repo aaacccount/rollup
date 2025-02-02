@@ -1,7 +1,8 @@
 import type MagicString from 'magic-string';
 import type { ast } from '../../rollup/types';
 import type { RenderOptions } from '../../utils/renderHelpers';
-import type { HasEffectsContext } from '../ExecutionContext';
+import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
+import { UNKNOWN_PATH } from '../utils/PathTracker';
 import type * as nodes from './node-unions';
 import type { YieldExpressionParent } from './node-unions';
 import type * as NodeType from './NodeType';
@@ -13,9 +14,20 @@ export default class YieldExpression extends NodeBase<ast.YieldExpression> {
 	delegate!: boolean;
 	type!: NodeType.tYieldExpression;
 
+	applyDeoptimizations() {
+		this.deoptimized = true;
+		this.argument?.deoptimizePath(UNKNOWN_PATH);
+	}
+
 	hasEffects(context: HasEffectsContext): boolean {
 		if (!this.deoptimized) this.applyDeoptimizations();
 		return !(context.ignore.returnYield && !this.argument?.hasEffects(context));
+	}
+
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		if (!this.deoptimized) this.applyDeoptimizations();
+		this.argument?.includePath(UNKNOWN_PATH, context);
 	}
 
 	render(code: MagicString, options: RenderOptions): void {

@@ -7,7 +7,7 @@ import type * as nodes from './node-unions';
 import type { CatchClauseParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import { UNKNOWN_EXPRESSION } from './shared/Expression';
-import { NodeBase } from './shared/Node';
+import { NodeBase, onlyIncludeSelf } from './shared/Node';
 
 export default class CatchClause extends NodeBase<ast.CatchClause> {
 	parent!: CatchClauseParent;
@@ -37,3 +37,4 @@ export default class CatchClause extends NodeBase<ast.CatchClause> {
 }
 
 CatchClause.prototype.preventChildBlockScope = true;
+CatchClause.prototype.includeNode = onlyIncludeSelf;

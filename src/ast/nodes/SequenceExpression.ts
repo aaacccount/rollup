@@ -17,7 +17,12 @@ import type * as nodes from './node-unions';
 import type { SequenceExpressionParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import type { LiteralValueOrUnknown } from './shared/Expression';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import {
+	doNotDeoptimize,
+	type IncludeChildren,
+	NodeBase,
+	onlyIncludeSelfNoDeoptimize
+} from './shared/Node';
 
 export default class SequenceExpression extends NodeBase<ast.SequenceExpression> {
 	parent!: SequenceExpressionParent;
@@ -71,11 +76,7 @@ export default class SequenceExpression extends NodeBase<ast.SequenceExpression>
 		);
 	}
 
-	includePath(
-		path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		this.included = true;
 		const lastExpression = this.expressions[this.expressions.length - 1];
 		for (const expression of this.expressions) {
@@ -83,9 +84,15 @@ export default class SequenceExpression extends NodeBase<ast.SequenceExpression>
 				includeChildrenRecursively ||
 				(expression === lastExpression && !(this.parent instanceof ExpressionStatement)) ||
 				expression.shouldBeIncluded(context)
-			)
-				expression.includePath(path, context, includeChildrenRecursively);
+			) {
+				expression.include(context, includeChildrenRecursively);
+			}
 		}
+	}
+
+	includePath(path: ObjectPath, context: InclusionContext): void {
+		this.included = true;
+		this.expressions[this.expressions.length - 1].includePath(path, context);
 	}
 
 	removeAnnotations(code: MagicString) {
@@ -131,3 +138,6 @@ export default class SequenceExpression extends NodeBase<ast.SequenceExpression>
 		}
 	}
 }
+
+SequenceExpression.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+SequenceExpression.prototype.applyDeoptimizations = doNotDeoptimize;

@@ -10,11 +10,15 @@ import {
 } from '../../utils/renderHelpers';
 import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
 import { createHasEffectsContext } from '../ExecutionContext';
-import { type ObjectPath, UNKNOWN_PATH } from '../utils/PathTracker';
 import type * as nodes from './node-unions';
 import type { ProgramParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import {
+	doNotDeoptimize,
+	type IncludeChildren,
+	NodeBase,
+	onlyIncludeSelfNoDeoptimize
+} from './shared/Node';
 
 export default class Program extends NodeBase<ast.Program> {
 	parent!: ProgramParent;
@@ -53,15 +57,11 @@ export default class Program extends NodeBase<ast.Program> {
 		return false;
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		this.included = true;
 		for (const node of this.body) {
 			if (includeChildrenRecursively || node.shouldBeIncluded(context)) {
-				node.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+				node.include(context, includeChildrenRecursively);
 			}
 		}
 	}
@@ -107,6 +107,7 @@ export default class Program extends NodeBase<ast.Program> {
 			super.render(code, options);
 		}
 	}
-
-	protected applyDeoptimizations() {}
 }
+
+Program.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+Program.prototype.applyDeoptimizations = doNotDeoptimize;

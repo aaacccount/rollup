@@ -8,7 +8,7 @@ import type * as nodes from './node-unions';
 import type { ArrayPatternParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import type { ExpressionEntity } from './shared/Expression';
-import { NodeBase } from './shared/Node';
+import { NodeBase, onlyIncludeSelf } from './shared/Node';
 import type { DeclarationPatternNode } from './shared/Pattern';
 import type { VariableKind } from './shared/VariableKinds';
 
@@ -119,6 +119,8 @@ export default class ArrayPattern
 		}
 	}
 }
+
+ArrayPattern.prototype.includeNode = onlyIncludeSelf;
 
 const getIncludedPatternPath = (destructuredInitPath: ObjectPath): ObjectPath =>
 	destructuredInitPath.at(-1) === UnknownKey

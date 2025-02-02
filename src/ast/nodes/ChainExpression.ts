@@ -1,14 +1,19 @@
 import type MagicString from 'magic-string';
 import type { ast } from '../../rollup/types';
 import type { DeoptimizableEntity } from '../DeoptimizableEntity';
-import type { HasEffectsContext } from '../ExecutionContext';
+import type { HasEffectsContext, InclusionContext } from '../ExecutionContext';
 import type { EntityPathTracker, ObjectPath } from '../utils/PathTracker';
 import type CallExpression from './CallExpression';
 import type MemberExpression from './MemberExpression';
 import type { ChainExpressionParent } from './node-unions';
 import type * as NodeType from './NodeType';
 import type { LiteralValueOrUnknown } from './shared/Expression';
-import { IS_SKIPPED_CHAIN, NodeBase } from './shared/Node';
+import {
+	doNotDeoptimize,
+	IS_SKIPPED_CHAIN,
+	NodeBase,
+	onlyIncludeSelfNoDeoptimize
+} from './shared/Node';
 
 export default class ChainExpression
 	extends NodeBase<ast.ChainExpression>
@@ -38,9 +43,15 @@ export default class ChainExpression
 		return this.expression.hasEffectsAsChainElement(context) === true;
 	}
 
+	includePath(path: ObjectPath, context: InclusionContext) {
+		this.included = true;
+		this.expression.includePath(path, context);
+	}
+
 	removeAnnotations(code: MagicString) {
 		this.expression.removeAnnotations(code);
 	}
-
-	protected applyDeoptimizations() {}
 }
+
+ChainExpression.prototype.includeNode = onlyIncludeSelfNoDeoptimize;
+ChainExpression.prototype.applyDeoptimizations = doNotDeoptimize;

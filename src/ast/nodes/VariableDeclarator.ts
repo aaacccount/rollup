@@ -15,7 +15,7 @@ import Identifier from './Identifier';
 import type * as nodes from './node-unions';
 import type { VariableDeclaratorParent } from './node-unions';
 import * as NodeType from './NodeType';
-import { type IncludeChildren, NodeBase } from './shared/Node';
+import { doNotDeoptimize, type IncludeChildren, NodeBase } from './shared/Node';
 import type { VariableKind } from './shared/VariableKinds';
 
 export default class VariableDeclarator extends NodeBase<ast.VariableDeclarator> {
@@ -35,7 +35,6 @@ export default class VariableDeclarator extends NodeBase<ast.VariableDeclarator>
 	}
 
 	hasEffects(context: HasEffectsContext): boolean {
-		if (!this.deoptimized) this.applyDeoptimizations();
 		const initEffect = this.init?.hasEffects(context);
 		this.id.markDeclarationReached();
 		return (
@@ -48,18 +47,13 @@ export default class VariableDeclarator extends NodeBase<ast.VariableDeclarator>
 		);
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
-		const { deoptimized, id, init } = this;
-		if (!deoptimized) this.applyDeoptimizations();
-		this.included = true;
-		init?.includePath(EMPTY_PATH, context, includeChildrenRecursively);
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
+		const { id, init } = this;
+		if (!this.included) this.includeNode();
+		init?.include(context, includeChildrenRecursively);
 		id.markDeclarationReached();
 		if (includeChildrenRecursively) {
-			id.includePath(EMPTY_PATH, context, includeChildrenRecursively);
+			id.include(context, includeChildrenRecursively);
 		} else {
 			id.includeDestructuredIfNecessary(context, EMPTY_PATH, init || UNDEFINED_EXPRESSION);
 		}
@@ -102,8 +96,8 @@ export default class VariableDeclarator extends NodeBase<ast.VariableDeclarator>
 		}
 	}
 
-	protected applyDeoptimizations() {
-		this.deoptimized = true;
+	includeNode() {
+		this.included = true;
 		const { id, init } = this;
 		if (init && id instanceof Identifier && init instanceof ClassExpression && !init.id) {
 			const { name, variable } = id;
@@ -115,3 +109,5 @@ export default class VariableDeclarator extends NodeBase<ast.VariableDeclarator>
 		}
 	}
 }
+
+VariableDeclarator.prototype.applyDeoptimizations = doNotDeoptimize;

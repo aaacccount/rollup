@@ -1,7 +1,7 @@
 import type { ast } from '../../rollup/types';
 import type { DebuggerStatementParent } from './node-unions';
 import type * as NodeType from './NodeType';
-import { NodeBase } from './shared/Node';
+import { NodeBase, onlyIncludeSelf } from './shared/Node';
 
 export default class DebuggerStatement extends NodeBase<ast.DebuggerStatement> {
 	parent!: DebuggerStatementParent;
@@ -11,3 +11,5 @@ export default class DebuggerStatement extends NodeBase<ast.DebuggerStatement> {
 		return true;
 	}
 }
+
+DebuggerStatement.prototype.includeNode = onlyIncludeSelf;

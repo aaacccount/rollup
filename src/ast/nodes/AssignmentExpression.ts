@@ -56,14 +56,10 @@ export default class AssignmentExpression extends NodeBase<ast.AssignmentExpress
 		return this.right.hasEffectsOnInteractionAtPath(path, interaction, context);
 	}
 
-	includePath(
-		_path: ObjectPath,
-		context: InclusionContext,
-		includeChildrenRecursively: IncludeChildren
-	): void {
+	include(context: InclusionContext, includeChildrenRecursively: IncludeChildren): void {
 		const { deoptimized, left, right, operator } = this;
 		if (!deoptimized) this.applyDeoptimizations();
-		this.included = true;
+		if (!this.included) this.includeNode(context);
 		const hasEffectsContext = createHasEffectsContext();
 		if (
 			includeChildrenRecursively ||
@@ -74,7 +70,13 @@ export default class AssignmentExpression extends NodeBase<ast.AssignmentExpress
 		) {
 			left.includeAsAssignmentTarget(context, includeChildrenRecursively, operator !== '=');
 		}
-		right.includePath(UNKNOWN_PATH, context, includeChildrenRecursively);
+		right.include(context, includeChildrenRecursively);
+	}
+
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		if (!this.deoptimized) this.applyDeoptimizations();
+		this.right.includePath(UNKNOWN_PATH, context);
 	}
 
 	initialise(): void {
@@ -157,7 +159,7 @@ export default class AssignmentExpression extends NodeBase<ast.AssignmentExpress
 		}
 	}
 
-	protected applyDeoptimizations(): void {
+	applyDeoptimizations() {
 		this.deoptimized = true;
 		this.left.deoptimizeAssignment(EMPTY_PATH, this.right);
 		this.scope.context.requestTreeshakingPass();

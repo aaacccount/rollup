@@ -76,7 +76,7 @@ export default class AssignmentPattern
 			this.left.includeDestructuredIfNecessary(context, destructuredInitPath, init) ||
 			this.included;
 		if ((included ||= this.right.shouldBeIncluded(context))) {
-			this.right.includePath(UNKNOWN_PATH, context, false);
+			this.right.include(context, false);
 			if (!this.left.included) {
 				this.left.included = true;
 				// Unfortunately, we need to include the left side again now, so that
@@ -85,6 +85,12 @@ export default class AssignmentPattern
 			}
 		}
 		return (this.included = included);
+	}
+
+	includeNode(context: InclusionContext) {
+		this.included = true;
+		if (!this.deoptimized) this.applyDeoptimizations();
+		this.right.includePath(UNKNOWN_PATH, context);
 	}
 
 	markDeclarationReached(): void {
@@ -100,7 +106,7 @@ export default class AssignmentPattern
 		this.right.render(code, options);
 	}
 
-	protected applyDeoptimizations(): void {
+	applyDeoptimizations() {
 		this.deoptimized = true;
 		this.left.deoptimizePath(EMPTY_PATH);
 		this.right.deoptimizePath(UNKNOWN_PATH);
